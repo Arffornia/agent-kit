@@ -1,88 +1,69 @@
 ---
 name: work-ticket
-description: Take an Arffornia GitHub issue from ticket to pull request (branch `<type>/<n>-slug`, implement, `make check`, PR with the repo template, labels and `Closes #n`), or draft a new issue with the Arffornia label taxonomy. Use when asked to work on, pick up, fix or implement an issue, or to write, draft or backfill tickets for an Arffornia repo.
-argument-hint: "[issue-number | 'draft' <topic>]"
+description: "Take an Arffornia GitHub issue from ticket to a verified, committed branch ready to publish (branch <type>/<n>-slug, test from the acceptance criteria, implement, make check, independent review), or draft a new issue with the Arffornia label taxonomy. Use when asked to work on, pick up, fix or implement an issue, or to write, draft or backfill tickets."
+argument-hint: "[issue-number | draft <topic>]"
 ---
 
-# Work a ticket (Arffornia edition)
+# Work a ticket
 
-Based on Brian's `work-ticket` skill. A ticket is read by the maintainer scanning the board, by
-whoever decides what depends on it, and by someone searching history in six months. Write for
-all three. The same rules hold for PRs.
-
-Argument: `$ARGUMENTS`. A number means "work this issue". `draft <topic>` means "write an issue".
+`$ARGUMENTS`: a number means "work this issue"; `draft <topic>` means "write an issue".
+A ticket is read by Brian scanning the board, by whoever plans what depends on it, and by
+someone searching history in six months. Write for all three; the same holds for PRs.
 
 ## A. Work an issue
 
-1. **Read before touching code.** `gh api repos/Arffornia/<repo>/issues/<n>` (title, body, labels,
-   comments). Read the repo's `AGENTS.md` and any ADR the issue links.
-2. **Check it is workable.** Proceed only if the issue has `agent-ready` and acceptance criteria.
-   If it has `needs-decision`, or you hit a design choice the issue does not settle, stop and
-   ask in the issue (or ask Brian). Do not pick an option yourself.
+1. **Read before touching code.** `gh api repos/Arffornia/<repo>/issues/<n>` (body, labels,
+   comments) and the repo's `AGENTS.md`, `PROGRESS.md`, any active plan in
+   `docs/exec-plans/active/` and any ADR or spec the issue links.
+2. **Check it is workable.** Proceed only with `agent-ready` and written acceptance criteria.
+   `needs-decision`, or a design choice the issue does not settle: stop, write the question
+   with options and a recommendation, and leave the choice to Brian.
 3. **Branch** from the default branch, never commit on it:
    ```bash
-   git fetch origin main && git switch -c <type>/<n>-<slug> origin/main
+   git fetch origin <default> && git switch -c <type>/<n>-<slug> origin/<default>
    ```
-   `<type>` comes from the issue's `type:` label: `fix` (bug), `security`, `feat` (feature),
-   `deps`, `test`, `docs`, `ci`, `refactor`, `chore`. `<slug>`: 2-5 lowercase words with hyphens.
-   Example: `fix/12-http-timeouts`.
-4. **Implement the smallest change that meets every acceptance criterion.** One concern per PR.
-   Add or update a test that fails without the change (unit test, or a GameTest with the
-   `mc-gametest` skill). Player-facing text goes through i18n in `en` and `fr` (`i18n-sync`).
-5. **Check.** `make check` must pass. If something cannot run offline, say so in the PR.
-   Update `AGENTS.md` or docs when commands, layout or behaviour changed.
-6. **Commit** with Conventional Commits, scope = the component: `fix(proxy): add HTTP timeouts`.
-7. **Open the PR** with the `publish` skill if Brian invokes it, otherwise as described there:
-   draft PR, body from `.github/pull_request_template.md` (What / Why / How it was tested /
-   Risk & revert / Checklist), `Closes #<n>` under Why, the issue's `type:` and `area:` labels.
-   Never merge, tag, release or push to `main`.
+   `<type>` from the `type:` label: `fix`, `security`, `feat`, `deps`, `test`, `docs`, `ci`,
+   `refactor`, `chore`. `<slug>`: 2-5 lowercase words. Example: `fix/12-http-timeouts`.
+4. **Tests first, independently.** Delegate to the `arffornia:test-writer` agent with the
+   issue URL: it writes tests from the acceptance criteria without seeing your code. Bring its
+   tests onto the branch and confirm they fail for the right reason. When the agent is not
+   available, write the test yourself before the fix and show it failing.
+5. **Implement the smallest change** that meets every criterion. One concern per PR. Player
+   text goes through i18n in `en` and `fr`. Never replace a Nexus_* library; improve it.
+   Multi-session work gets an exec plan (`docs/exec-plans/active/`).
+6. **Check.** `make check` green. If something cannot run offline, say so. Update `AGENTS.md`
+   or docs when commands, layout or behaviour changed.
+7. **Prove it.** Run the real thing for behaviour changes (`arffornia:verifier` agent:
+   Playwright for the website, Playwright-Electron for the launcher, `runGameTestServer`
+   for the mod) and keep the evidence. Then run `/arffornia:review` (in-session mode: fresh
+   finder and verifier subagents, a stamp for the tree; the Stop hook asks for it anyway),
+   fix every confirmed blocking or major finding and label each finding.
+8. **Commit** with Conventional Commits, scope = component, and the session's trailers:
+   `fix(proxy): add HTTP timeouts`.
+9. **Harness lessons.** If something in the harness got in the way (a misleading skill step,
+   a guard that blocked a legitimate action, a missing rule), record it with
+   `/arffornia:harness-feedback` before you finish.
+10. **Stop before pushing.** Pushing makes work public: Brian runs `/arffornia:publish <n>`,
+   or explicitly asks you to push. Write the handoff (`PROGRESS.md`) if the work continues.
+
+PR body (for publish): What / Why (`Closes #<n>`) / How it was tested (commands and real
+output, verify evidence) / Risk & revert / Checklist. Labels: the issue's `type:` and `area:`.
 
 ## B. Draft an issue
 
-Draft first, create only after Brian approves the text.
+Draft the text, show it, and create it only when the user says so. Format, labels, milestones
+and the create command: [references/issue-format.md](references/issue-format.md).
 
-```
-Title: <Imperative verb> <specific outcome>          (under ~80 chars, no "As a ...")
-
-**Context**
-<1-3 sentences: the problem and what triggered it.>
-
-**Evidence**
-- `path/to/file.ext:42` <what it shows>
-
-**Acceptance criteria**
-- [ ] <observable outcome a non-author can check>
-
-**Notes**
-<risks, out of scope, links. Delete if empty.>
-```
-
-Labels, all from the existing taxonomy (`gh api repos/Arffornia/<repo>/labels`), never new ones:
-
-| Axis | Pick exactly one |
-|---|---|
-| `type: ` | `bug`, `security`, `feature`, `deps`, `test`, `docs`, `ci`, `refactor` |
-| `area: ` | `website`, `launcher`, `mod`, `proxy`, `provisioning`, `libs`, `infra`, `ai` |
-| `priority: ` | `P0` now (security, data loss), `P1` next, `P2` planned, `P3` nice to have |
-| `effort: ` | `S` under half a day, `M` 1-3 days, `L` more |
-| readiness | `agent-ready` **only** when acceptance criteria are written and no design question is open; otherwise `needs-decision`. An idea is `proposal`. |
-
-Labels are spelled with a space after the colon (`type: bug`). Milestones: `M1 · Foundation & security`,
-`M2 · Tests & CI`, `M3 · Gameplay foundations`.
-
-Create with the REST API (GraphQL may be unavailable):
-```bash
-gh api repos/Arffornia/<repo>/issues -f title='...' -f body="$(cat body.md)" \
-  -f 'labels[]=type: bug' -f 'labels[]=area: proxy' -f 'labels[]=priority: P1' \
-  -f 'labels[]=effort: S' -f 'labels[]=agent-ready'
-```
-
-## Checklist before showing a ticket or PR
-
-- Title readable alone on a board, imperative.
+Checklist before showing a ticket or PR:
+- Title readable alone on a board, imperative, under ~80 chars.
 - First paragraph answers "why does this exist".
 - At least one check a non-author can perform.
-- Limitations or follow-ups stated, or deliberately absent.
-- **Security:** an exploitable weakness that is not fixed gets a neutral title ("Harden IPC input
-  validation") and no reproduction steps. No secrets, tokens or internal hostnames anywhere.
+- Limitations or follow-ups stated.
+- Security: an exploitable weakness that is not fixed gets a neutral title ("Harden IPC
+  input validation") and no reproduction steps. No secrets, tokens or internal hostnames.
 - Fits on one screen.
+
+## Report
+
+End with the list in [references/reporting.md](references/reporting.md): every issue, branch,
+commit and PR as a full URL with a one-line state, grouped Decide / Review / Act / FYI / Not done.

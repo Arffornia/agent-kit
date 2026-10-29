@@ -98,6 +98,15 @@ record them.
 | High / security (3 finders + security reviewer, ~8 candidates) | 3 Opus finders + Opus security reviewer + 8 Sonnet + 8 Opus verifiers | **≈ $3.6** | ≈ $4.1 |
 | Delta re-review (round 2-3, small fix-ups) | 1 Opus finder + 1-3 verifiers | ≈ $0.5 | ≈ $0.6 |
 
+**Measured on this rework (2026-10-29, `total_cost_usd` from `claude -p`, API-equivalent):**
+round 1, a full high-risk review of a 2,400-code-line diff, cost **$7.19** for the four finders
+alone (the run ended before verification, a bug since fixed); round 2, a high-risk delta
+(353+/127− lines, 20 candidates, two verifiers each), cost **$14.28** end to end. So the
+estimates above hold for task-sized diffs, while a big high-risk change with many candidates
+costs several times more: the per-candidate verifier pairs dominate. Levers if that matters:
+fewer, larger tasks are not cheaper; smaller PRs are; and `review-feedback` will show whether
+the second (Opus) verifier at high risk changes outcomes.
+
 For comparison, Anthropic's managed Code Review "generally costs $15-25" per review
 ([blog](https://claude.com/blog/code-review), 2026-03-09). On a Claude subscription these runs
 draw plan usage instead of money. The Sonnet verifiers save 10-25%; the finders, where quality

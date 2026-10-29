@@ -15,7 +15,7 @@ the model to use, and a "lethal trifecta" card.
 | [`deps-upgrade`](deps-upgrade.md) | weekly, Tuesday | Opus | one draft PR per library, `deps/<lib>-<version>` | 45 min | 3 h |
 | [`review-feedback`](review-feedback.md) | weekly, Friday | Sonnet | one draft PR in agent-kit (`evals/` cases + metrics from in-session review markers) | 20 min | 1 h |
 | [`harness-audit`](harness-audit.md) | monthly, 1st | Opus | one issue in agent-kit, `Harness audit YYYY-MM` | 40 min | 3 h |
-| [`security-audit`](security-audit.md) | monthly, 2nd | Opus | private report; neutral public issues for hygiene only | 60 min | 4 h |
+| [`security-audit`](security-audit.md) | monthly, 2nd | Opus | private report only (hygiene issues drafted for Brian to file; GitHub writes disallowed) | 60 min | 4 h |
 | [`onboarding-audit`](onboarding-audit.md) | monthly, 3rd | Sonnet | one `type: docs` issue per blocker | 60 min | 4 h |
 | [`quality-score`](quality-score.md) | monthly, 5th | Sonnet | one draft PR per repo updating `QUALITY_SCORE.md` | 40 min | 3 h |
 

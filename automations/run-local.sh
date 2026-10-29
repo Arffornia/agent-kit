@@ -8,6 +8,8 @@
 #                 a fresh detached worktree of its default branch, removed afterwards
 #
 # Model and turn cap come from the prompt file ("Model: Opus", "Hard cap: ... / 400 turns").
+# A "Disallowed tools:" line in the prompt is passed to --disallowedTools (e.g. security-audit
+# forbids every GitHub write). The run is stopped at the prompt's hard cap in hours (default 3 h).
 # Env: ARFFORNIA_PERMISSION_MODE (default auto), ARFFORNIA_AUTOMATION_STATE (logs, lock),
 #      CLAUDE_BIN (default claude). Portable: macOS bash 3.2 + BSD tools, Linux.
 set -euo pipefail
@@ -26,15 +28,27 @@ model="$(sed -nE 's/.*Model: (Opus|Sonnet|Haiku|Fable).*/\1/p' "$prompt" | head 
 [ -n "$model" ] || model=opus
 turns="$(sed -nE 's/.*Hard cap: [^/]*\/ *([0-9]+) turns.*/\1/p' "$prompt" | head -n 1)"
 [ -n "$turns" ] || turns=200
+hours="$(sed -nE 's/.*Hard cap: *([0-9]+) *h.*/\1/p' "$prompt" | head -n 1)"
+[ -n "$hours" ] || hours=3
+disallowed="$(sed -nE 's/^Disallowed tools: *//p' "$prompt" | head -n 1)"
 
 state="${ARFFORNIA_AUTOMATION_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/arffornia-automations}"
 mkdir -p "$state"
 lock="$state/$agent.lock"
-mkdir "$lock" 2>/dev/null || { printf 'run-local: %s is already running (%s)\n' "$agent" "$lock" >&2; exit 0; }
-wt=""
+if ! mkdir "$lock" 2>/dev/null; then
+  old="$(cat "$lock/pid" 2>/dev/null || true)"
+  if [ -n "$old" ] && kill -0 "$old" 2>/dev/null; then
+    printf 'run-local: %s is already running (pid %s)\n' "$agent" "$old" >&2; exit 0
+  fi
+  printf 'run-local: removing a stale lock (pid %s is gone)\n' "${old:-?}" >&2
+  rm -rf "$lock"; mkdir "$lock" || die "cannot take the lock $lock"
+fi
+printf '%s\n' "$$" > "$lock/pid"
+wt=""; watchdog=""
 cleanup() {
   if [ -n "$wt" ] && [ -d "$wt" ]; then git -C "$repo" worktree remove --force "$wt" >/dev/null 2>&1 || true; fi
-  rmdir "$lock" 2>/dev/null || true
+  [ -n "${watchdog:-}" ] && kill "$watchdog" 2>/dev/null
+  rm -rf "$lock" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -53,8 +67,16 @@ git -C "$repo" worktree add -q --detach "$wt" "$def" || die "cannot create a wor
 
 log="$state/$agent-$stamp.log"
 printf 'run-local: %s · model %s · max %s turns · %s @ %s · log %s\n' "$agent" "$model" "$turns" "$repo" "$def" "$log" >&2
+set -- -p "$(cat "$prompt")" --model "$model" --max-turns "$turns" \
+  --permission-mode "${ARFFORNIA_PERMISSION_MODE:-auto}" --output-format text
+[ -n "$disallowed" ] && set -- "$@" --disallowedTools "$disallowed"
 rc=0
-(cd "$wt" && "$claude_bin" -p "$(cat "$prompt")" --model "$model" --max-turns "$turns" \
-  --permission-mode "${ARFFORNIA_PERMISSION_MODE:-auto}" --output-format text) >"$log" 2>&1 || rc=$?
+# Foreground subagents: a background one can let a headless run end before it reports.
+(cd "$wt" && CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 exec "$claude_bin" "$@") >"$log" 2>&1 &
+pid=$!
+# Watchdog with its own stdio, so it never holds the caller's stdout (cron mail, pipes) open.
+( sleep $(( hours * 3600 )); kill "$pid" 2>/dev/null && printf 'run-local: hard cap of %s h reached, run stopped\n' "$hours" >>"$log" ) </dev/null >/dev/null 2>&1 &
+watchdog=$!
+wait "$pid" || rc=$?
 tail -n 20 "$log"
 exit "$rc"

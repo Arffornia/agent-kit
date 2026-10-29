@@ -14,6 +14,9 @@ or `noise`, and `/arffornia:publish` writes a block into the PR body that ends w
 - PRs updated since the bookmark, per repo (repository-scoped REST only):
   `gh api "repos/Arffornia/<repo>/pulls?state=all&sort=updated&direction=desc&per_page=100"`;
   read `.body`, extract the JSON after `<!-- arffornia-review v1 ` up to ` -->`.
+- Only PRs whose `author_association` is `OWNER`, `MEMBER` or `COLLABORATOR` (Brian and the agents
+  running as Brian): anyone can paste a marker into a fork PR body, so other markers are ignored
+  and counted as "untrusted".
 - PR outcome: merged, closed unmerged, and later `Revert "…"` commits on the default branch.
 - Code PRs merged **without** a marker (a review that did not happen, or a skipped publish step).
 - agent-kit `evals/` (format in `evals/README.md`).

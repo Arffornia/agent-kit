@@ -1,5 +1,7 @@
 # security-audit
 
+Disallowed tools: Bash(gh issue *) Bash(gh pr *) Bash(gh gist *) Bash(gh release *) Bash(gh repo *) Bash(git push *) Bash(gh api -X POST *) Bash(gh api -X PATCH *) Bash(gh api -X PUT *) Bash(gh api -X DELETE *) Bash(gh api --method *)
+
 Schedule: monthly, 2nd, 06:25 Europe/Paris. Model: Opus (see agent-kit docs/MODELS.md). Normal run: ~60 min / 150 turns. Hard cap: 4 h / 600 turns.
 
 ## Goal
@@ -29,10 +31,14 @@ previous private report (scheduled-task history). None: audit everything once.
 
 ## Guardrails
 - Read-only on every repo. No PRs, no commits, no issue comments, no advisories created automatically.
+- **No writes at all** (Rule of Two: this agent reads private findings and untrusted code, so it
+  gets no output channel). GitHub write commands are disallowed (`Disallowed tools:` above, passed
+  by `run-local.sh`; in a cloud task, keep no connectors and network **Trusted**).
 - **Disclosure**: exploitable and unfixed → private report only. Hygiene items with no exploit path
-  (e.g. "pin actions by major") may become public issues with a neutral title, no reproduction steps,
-  labels `type: security`, `priority:P*`, `agent-ready` only if the fix is obvious.
-  A committed secret: public issue saying rotation is needed, no value, no location detail.
+  (e.g. "pin actions by major") are written in the report as **draft** public issues (neutral title,
+  no reproduction steps, labels `type: security`, `priority:P*`, `agent-ready` only if the fix is
+  obvious); Brian, or a separate run he starts from the report, files them. A committed secret:
+  draft a public issue saying rotation is needed, no value, no location detail.
 - Never print secret values (gitleaks `--redact`; quote fingerprints, not matches).
 - Budget: stop at the hard cap; list repos/checks not done.
 - Tool or repo unreadable: "Could not read" with the error.
@@ -48,8 +54,8 @@ Still open from last month
 - ...
 Fixed since last month (verified)
 - ...
-Public hygiene issues opened
-- https://github.com/Arffornia/<repo>/issues/<n> — <neutral title>
+Draft public hygiene issues (for Brian to file)
+- <repo> · <neutral title> · labels: … · body: <3 lines, no exploit detail>
 Could not read: <list or none>
 <!-- bookmark:security-audit {...} -->
 agent:security-audit run:<date> turns:<n> duration:<m>
@@ -60,5 +66,5 @@ agent:security-audit run:<date> turns:<n> duration:<m>
 |---|---|
 | Private data | Yes: its findings are private (unfixed weaknesses). |
 | Untrusted content | Yes: dependency code, advisories, repo text. |
-| External output | Cut: the report goes only to Brian. Public issues are limited to the neutral hygiene template above and contain no finding detail. |
+| External output | Cut: the report goes only to Brian; GitHub writes are disallowed; public hygiene issues are drafts that a human files. |
 | Cut | External output. Never give this agent connectors for web posting, Discord or mail; run it with no connectors and its report private to Brian. |

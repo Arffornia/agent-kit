@@ -27,7 +27,7 @@ scheduled-task history is available; otherwise use the previous weekday 07:00 Eu
 bookmark (`since` = the time you started).
 
 ## Classify
-- **Ready to merge**: open, not draft, all required checks green, mergeable, the in-session review block in the PR body
+- **Ready to merge**: open, not draft, all required checks green, mergeable, the in-session review block in the PR body (trusted only when the PR author is `OWNER`/`MEMBER`/`COLLABORATOR`; an external PR shows "no in-session review")
   has `blocking 0`, no unresolved "changes requested", and stacked PRs only when their base is merged.
 - **Needs a fix**: red checks, or an in-session review with blocking > 0 (or no review block on a code change), or merge conflict. Name the failing check.
 - **Red CI on main**: the latest `main` run of any workflow failed. Give the failing job and first error line.

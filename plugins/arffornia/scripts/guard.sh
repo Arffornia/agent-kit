@@ -52,6 +52,7 @@ is_secret_path() { # <path>
 # ---------- generated / lock files (Edit, Write) ------------------------------------------
 check_generated() { # <abs path>
   local p="${1//\\//}" b rel root
+  p="$(phys_path "$p")"
   b="$(basename -- "$p")"
   case "$b" in
     package-lock.json|npm-shrinkwrap.json)
@@ -64,6 +65,7 @@ check_generated() { # <abs path>
       block "$b is a generated lockfile." "change the manifest and let the package manager regenerate $b." ;;
   esac
   root="$(repo_root 2>/dev/null || true)"
+  [ -n "$root" ] && root="$(cd "$root" 2>/dev/null && pwd -P || printf '%s' "$root")"
   rel="$p"; [ -n "$root" ] && rel="${p#"$root"/}"
   case "$rel" in
     src/generated/*)

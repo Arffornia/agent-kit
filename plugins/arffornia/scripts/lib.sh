@@ -64,6 +64,18 @@ work_dir() {
   printf '%s' "$d"
 }
 
+# phys_path <path>: the path with symlinked directories resolved (pwd -P), even when the file or
+# some parent directories do not exist yet. macOS needs it: /tmp and /var are symlinks to
+# /private/..., and git reports the physical repo root while Claude passes the logical path.
+phys_path() {
+  local p="$1" d tail
+  case "$p" in /*) ;; *) p="$PWD/$p" ;; esac
+  d="$(dirname -- "$p")"; tail="$(basename -- "$p")"
+  while [ ! -d "$d" ] && [ "$d" != / ]; do tail="$(basename -- "$d")/$tail"; d="$(dirname -- "$d")"; done
+  d="$(cd "$d" 2>/dev/null && pwd -P)" || { printf '%s' "$p"; return 0; }
+  printf '%s/%s' "${d%/}" "$tail"
+}
+
 # repo_root: top level of the git work tree, or fail.
 repo_root() {
   have git || return 1

@@ -12,6 +12,7 @@ f="$(json_get .tool_input.file_path)"
 [ -n "$f" ] && [ -f "$f" ] || exit 0
 have git || exit 0
 root="$(repo_root)" || exit 0
+root="$(cd "$root" && pwd -P)"; f="$(phys_path "$f")"
 case "$f" in "$root"/*) ;; *) exit 0 ;; esac
 cd "$root"
 rel="${f#"$root"/}"

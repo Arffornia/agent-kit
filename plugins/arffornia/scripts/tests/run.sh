@@ -108,6 +108,13 @@ f block Read .env.local
 f block Read infra/prod.tfvars
 f allow Read README.md
 
+# Paths through a symlinked directory (macOS: /var and /tmp are symlinks to /private/...).
+ln -s "$T/repo" "$T/link"
+gl() { g "$1" "$2" "$(jq -nc --arg p "$T/link/$3" '{file_path:$p}')"; }
+gl block Write src/generated/resources/data/y.json
+gl block Edit vendor/x/z.php
+gl allow Edit src/a.txt
+
 # ---------- post-edit ----------
 printf 'hello   \nBAD line\n' > src/c.txt
 hook post-edit.sh "$(jq -nc --arg p "$T/repo/src/c.txt" '{tool_name:"Edit",tool_input:{file_path:$p}}')"
@@ -118,6 +125,10 @@ printf '%s' "$c" | grep -q '2:BAD line' && ok "post-edit returns lint findings" 
 printf 'fine\n' > src/d.txt
 hook post-edit.sh "$(jq -nc --arg p "$T/repo/src/d.txt" '{tool_input:{file_path:$p}}')"
 [ -z "$OUT" ] && [ "$RC" = 0 ] && ok "post-edit silent on a clean file" || ko "post-edit silent on a clean file" "$OUT"
+printf 'via link   \n' > src/e.txt
+hook post-edit.sh "$(jq -nc --arg p "$T/link/src/e.txt" '{tool_name:"Edit",tool_input:{file_path:$p}}')"
+[ "$(head -1 src/e.txt)" = "via link" ] && ok "post-edit works through a symlinked path" || ko "post-edit via symlink" "$OUT"
+rm -f src/e.txt
 rm -f src/c.txt src/d.txt
 
 # ---------- stop ----------

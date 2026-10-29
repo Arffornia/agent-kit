@@ -6,8 +6,16 @@ skills, subagents and hooks; `templates/` holds the files each repo copies; `clo
 
 The goal: an agent starts every session already knowing the repo state, what to do next and
 how to verify it; it cannot break the rules that matter; and it proves its work before a human
-sees it. The design and its sources are in [docs/HARNESS.md](docs/HARNESS.md); the skill and
-subagent catalog is in [SKILLS.md](SKILLS.md).
+sees it: a non-trivial change is reviewed by independent subagents **inside the agent's
+session** at the end of the task (no AI review in CI, no API key or OAuth token in GitHub).
+
+| Read | For |
+|---|---|
+| [SKILLS.md](SKILLS.md) | The skill and subagent catalog (the only list; this README does not repeat it) |
+| [docs/HARNESS.md](docs/HARNESS.md) | The design, the end-of-task review, the improvement loop, the sandbox in plain words, sources |
+| [docs/MODELS.md](docs/MODELS.md) | Which model each role uses, with the evidence and the cost per review |
+| [docs/SETUP.md](docs/SETUP.md) | macOS (Homebrew, nix-darwin), Linux and NixOS setup; `nix develop` shells |
+| [automations/README.md](automations/README.md) | Scheduled agents, run as Claude Code scheduled tasks on your account |
 
 ```
 .claude-plugin/marketplace.json   marketplace "agent-kit" → plugins/arffornia
@@ -15,11 +23,13 @@ plugins/arffornia/
   .claude-plugin/plugin.json      plugin "arffornia"
   skills/  agents/                workflows and independent reviewers (see SKILLS.md)
   hooks/hooks.json                SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop, PreCompact, SessionEnd
-  scripts/                        the hook scripts (portable bash) + tests/run.sh
+  scripts/                        the hook scripts (portable bash), review-stamp.sh, tests/run.sh + tests/portability.sh
 templates/                        what a repo copies to adopt the harness
 cloud/setup.sh                    cloud environment setup script (warm toolchains and caches)
 codex/sync-skills.sh              expose the skills to Codex via .agents/skills
-docs/HARNESS.md                   how it all fits together
+docs/                             HARNESS.md (design), MODELS.md (model per role), SETUP.md (machines)
+flake.nix, Brewfile               dev toolchains for nix (Linux, macOS) and Homebrew
+.github/workflows/ci.yml          the kit's own CI: hook suite on Linux x86_64/arm64 and macOS arm64 (bash 3.2)
 ```
 
 ## Install (for you)
@@ -76,14 +86,16 @@ lint: ; $(if $(FILE),php -l $(FILE),composer validate)
 | Guards | `PreToolUse` hook + deny rules + sandbox | No force-push, no push to `main`, no `reset --hard` on a dirty tree, no hand-edited lockfiles or generated files, no secret reads; each block says what to do instead |
 | Per-file feedback | `PostToolUse` hook | Format + lint the edited file, findings returned at once |
 | Verify gate | `Stop` hook | `make check` must pass before the agent stops (cached per tree); docs and PROGRESS.md reminders |
+| End-of-task review | `Stop` hook review gate + `/arffornia:review` | Diff ≥ 10 code lines and no review stamp for the tree → the agent runs parallel finders and independent verifiers, confirmed findings only, max 3 rounds |
+| Improvement loop | `prompt-signals.sh`, guard hint, `/arffornia:harness-feedback`, `/arffornia:learning-card` | Corrections and friction become `harness-feedback` issues with a patch; a weekly run makes the PR; state-of-the-art finds become learning cards |
 | Handoff | `PreCompact` + `SessionEnd` hooks, `templates/PROGRESS.md`, `templates/docs/exec-plans/` | State survives compaction and session ends; never auto-committed |
 | Review depth | `templates/risk.yml`, `REVIEW.md.template` | Paths → light / standard / deep + security |
 | Quality | `templates/QUALITY_SCORE.md` | Area × grade × gaps (issue links), kept current by an automation |
 | One-command setup | `templates/scripts/init` | Deps, `.env` from example, `make check`, next steps |
 | Skills and subagents | `plugins/arffornia/skills/`, `agents/` | See [SKILLS.md](SKILLS.md) |
-| CI, guards, automations | `templates/ci/`, `templates/guards/`, `automations/` | AI review pipeline, architecture guards, scheduled agents |
+| CI, guards, automations | `templates/ci/`, `templates/guards/`, `automations/` | Deterministic CI (gitleaks, ADR lint, mutation nightly), architecture guards, scheduled agents without secrets |
 
-Hook details, budgets and escape hatches (`ARFFORNIA_SKIP_CHECK=1`, `ARFFORNIA_NO_GH=1`):
+Hook details, budgets and escape hatches (`ARFFORNIA_SKIP_CHECK=1`, `ARFFORNIA_SKIP_REVIEW=1`, `ARFFORNIA_NO_GH=1`):
 [docs/HARNESS.md#the-hooks](docs/HARNESS.md#the-hooks).
 
 ## Cloud environments
@@ -129,15 +141,17 @@ through `AGENTS.md`, which it reads natively.
 
 ## Propose a new skill: "twice → a skill"
 
-When you (or an agent) do the same multi-step action twice, it becomes a skill: open an issue
-here (`type: feature`, `area: ai`, the two occurrences and the steps), then follow
-[SKILLS.md](SKILLS.md). The same rule applies to sensors: a rule ignored twice becomes a hook,
+When you (or an agent) do the same multi-step action twice, it becomes a skill: record it with
+`/arffornia:harness-feedback` (an issue labelled `harness-feedback` with the two occurrences and
+the steps), then follow [SKILLS.md](SKILLS.md). The same rule applies to sensors: a rule ignored twice becomes a hook,
 lint or CI check ([docs/HARNESS.md](docs/HARNESS.md#guides-and-sensors-the-escalation-rule)).
 
 ## Validate a change to the kit
 
 ```bash
 claude plugin validate . && claude plugin validate plugins/arffornia
-bash plugins/arffornia/scripts/tests/run.sh
-shellcheck -S warning plugins/arffornia/scripts/*.sh cloud/setup.sh codex/sync-skills.sh templates/scripts/init
+bash plugins/arffornia/scripts/tests/run.sh            # hook suite (106 cases, offline)
+bash plugins/arffornia/scripts/tests/portability.sh    # bash 3.2 / BSD traps
+shellcheck -S warning plugins/arffornia/scripts/*.sh plugins/arffornia/scripts/tests/*.sh cloud/setup.sh codex/sync-skills.sh templates/scripts/init
+nix develop --command bash plugins/arffornia/scripts/tests/run.sh   # same, in the pinned nix toolchain
 ```

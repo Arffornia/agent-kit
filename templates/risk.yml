@@ -1,4 +1,4 @@
-# Review depth by path. Read by the AI review pipeline and the `review` skill, and by humans.
+# Review depth by path. Read by the in-session review (`/arffornia:review`, run at the end of a task) and by humans.
 # First matching rule wins (top to bottom). Globs are relative to the repo root.
 # depth: light = skim, docs and wording; standard = every line, tests cover it;
 #        deep = every line, trace callers, try to break it; security = deep + threat review

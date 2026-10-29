@@ -36,6 +36,14 @@ Architecture: https://arffornia.github.io/docs/ · Related: `<Repo>` (<why>), `<
 - Unfixed security weaknesses: neutral wording in public issues and PRs, no exploit details.
 - Finish with evidence (command + result), not claims. Update `PROGRESS.md` before you stop
   when work is unfinished.
+- **Review before handing back**: a non-trivial change gets `/arffornia:review` (fresh finder and
+  verifier subagents, confirmed findings only). The Stop hook asks once per tree; there is no AI
+  review in CI.
+- **Improve the harness**: when the user corrects how you work, a guard or hook fires again and
+  again, a skill misfires, or you hit friction or find a better way, record it with
+  `/arffornia:harness-feedback` (issue in Arffornia/agent-kit, evidence + proposed patch).
+- **Learning cards**: when you do or find something genuinely state of the art that the
+  maintainer would want to learn, draft a card with `/arffornia:learning-card`.
 - **Reporting**: every PR, issue, commit, artifact or page you mention to a human is a full
   clickable URL (`https://github.com/Arffornia/<repo>/pull/<n>`) with a one-line summary,
   grouped and ordered by what the human should do (review/merge, decide, FYI). Never
@@ -46,7 +54,7 @@ Architecture: https://arffornia.github.io/docs/ · Related: `<Repo>` (<why>), `<
 | Need | Look in |
 |---|---|
 | Conventions for the files you are editing | `.claude/rules/*.md` (loaded automatically by path) |
-| How to review, what is risky | `REVIEW.md`, `risk.yml` |
+| How to review, what is risky | `REVIEW.md`, `risk.yml` (read by `/arffornia:review`) |
 | Why something is the way it is | `docs/adr/` |
 | Quality per area and known gaps | `QUALITY_SCORE.md` |
 | Workflows (ticket → PR, publish, tests) | `/arffornia:<skill>` from the agent-kit plugin |

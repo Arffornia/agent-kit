@@ -11,18 +11,21 @@ hooks), the templates repos copy, a cloud setup script and a Codex skills sync. 
 | `.claude-plugin/marketplace.json` | Marketplace `agent-kit`; one entry `arffornia` → `./plugins/arffornia` |
 | `plugins/arffornia/.claude-plugin/plugin.json` | Plugin manifest (no `version`: users track commits) |
 | `plugins/arffornia/hooks/hooks.json` | Hook wiring (exec form, `${CLAUDE_PLUGIN_ROOT}`), loaded automatically |
-| `plugins/arffornia/scripts/*.sh` | Hook scripts; `lib.sh` is shared; `tests/run.sh` is the suite |
+| `plugins/arffornia/scripts/*.sh` | Hook scripts; `lib.sh` is shared; `review-stamp.sh` holds the in-session review state; `tests/run.sh` is the suite, `tests/portability.sh` the bash 3.2 / BSD lint |
 | `plugins/arffornia/skills/<name>/SKILL.md` | One folder per skill, namespaced `/arffornia:<name>` |
 | `plugins/arffornia/agents/*.md` | Subagents (`arffornia:reviewer`, …) |
 | `templates/` | AGENTS.md map, REVIEW.md, `.claude/settings.json` + `rules/`, PROGRESS.md, exec plans, GOLDEN_PRINCIPLES, QUALITY_SCORE, risk.yml, `scripts/init`, `ci/`, `guards/` |
 | `cloud/setup.sh` | Cloud environment setup script |
 | `codex/sync-skills.sh` | Skills → `.agents/skills` in a repo |
 | `automations/`, `evals/` | Scheduled agents with trifecta cards; harness eval cases |
+| `docs/HARNESS.md`, `docs/MODELS.md`, `docs/SETUP.md` | Design, model per role (with evidence), machine setup |
+| `flake.nix`, `Brewfile`, `.github/workflows/ci.yml` | Toolchains (nix, Homebrew); the kit's own CI (Linux + macOS bash 3.2) |
 
 ## Check before handing back
 ```bash
 claude plugin validate . && claude plugin validate plugins/arffornia
 bash plugins/arffornia/scripts/tests/run.sh          # hook suite, offline, ~5 s
+bash plugins/arffornia/scripts/tests/portability.sh  # bash 3.2 / BSD traps in every shell script
 shellcheck -S warning plugins/arffornia/scripts/*.sh cloud/setup.sh codex/sync-skills.sh templates/scripts/init
 jq . plugins/arffornia/hooks/hooks.json templates/.claude/settings.json >/dev/null
 ```
@@ -43,6 +46,10 @@ jq . plugins/arffornia/hooks/hooks.json templates/.claude/settings.json >/dev/nu
   an agent to merge, tag, release, push to `main` or touch secrets.
 - Keep the marketplace entry `name` and `plugin.json` `name` identical (`arffornia`).
 - A template change is a change in every repo that adopts it next: say so in the PR.
+- No AI review in CI and no API key or OAuth token anywhere: review runs in the session
+  (`/arffornia:review`), automations run as Claude Code scheduled tasks or `claude -p`.
+- When something in the harness gets in your way or could be better, record it with
+  `/arffornia:harness-feedback` (search first, then append or open, with a patch).
 - **Reporting**: every PR, issue, commit or page you mention to a human is a full clickable URL
   with a one-line summary, grouped by what the human should do. Never "I opened the PR" without
   the link.

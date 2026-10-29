@@ -1,0 +1,9 @@
+{
+  "name": "arffornia",
+  "displayName": "Arffornia",
+  "description": "How AI agents work on Arffornia: ticket to PR, human-only publish, NeoForge GameTests, safe modpack changes, risk-based review, en/fr i18n sync.",
+  "author": { "name": "Brian Perret" },
+  "homepage": "https://github.com/Arffornia/agent-kit",
+  "repository": "https://github.com/Arffornia/agent-kit",
+  "keywords": ["arffornia", "minecraft", "neoforge", "workflow", "review"]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "agent-kit",
+  "description": "Shared Claude Code setup for the Arffornia repositories",
+  "owner": { "name": "Brian Perret" },
+  "plugins": [
+    {
+      "name": "arffornia",
+      "source": "./plugins/arffornia",
+      "description": "Arffornia workflow skills (tickets, publish, GameTests, modpack changes, review, i18n) and a reviewer agent"
+    }
+  ]
+}

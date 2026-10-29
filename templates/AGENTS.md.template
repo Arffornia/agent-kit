@@ -1,0 +1,46 @@
+# AGENTS.md — <Repo name>
+
+Guide for AI agents and newcomers. Keep it under 150 lines: a map, not a manual.
+`CLAUDE.md` contains only `@AGENTS.md`.
+
+## Purpose
+<One paragraph: what this repo is and where it sits in Arffornia (link https://arffornia.github.io/docs/).>
+
+## Repo map
+| Path | What |
+|---|---|
+| `<dir or file>` | <one line> |
+
+## Commands
+- `make check` — everything CI runs (lint + typecheck + tests + build). Must pass before a PR.
+- `make test`, `make build`, `make lint`, `make fmt` (if a formatter exists), `make run`.
+- <Resource limits, e.g. Gradle: `--no-daemon -Dorg.gradle.jvmargs=-Xmx2g`, one build at a time.>
+
+## Conventions
+- English everywhere (code, comments, logs, docs, commits, PRs). Player text through i18n, en + fr.
+- Conventional Commits (`fix(<area>): ...`). Branches `<type>/<issue>-<slug>`.
+- One PR per issue, `Closes #n`, body: What / Why / How it was tested / Risk & revert.
+- Decisions a future reader would question go in an ADR (`docs/adr/`).
+
+## Hard rules
+- No secrets in the repo; placeholders only.
+- Never merge, tag, release, or push to the default branch; open PRs.
+- Do not replace the owner's libraries (Nexus_*) with third-party ones.
+- `needs-decision` issues belong to the maintainer: ask, do not choose.
+- Unfixed security weaknesses: neutral issue/PR wording, no exploit details.
+- The same manual action twice: propose a skill in `Arffornia/agent-kit`.
+
+## Testing strategy
+<Unit / integration / E2E for this stack, and what "tested" means for a PR here.>
+
+## Gotchas
+- <Things that surprised the last person, with issue links.>
+
+## AI setup
+- Plugin `arffornia@agent-kit` (enabled in `.claude/settings.json`): `/arffornia:work-ticket`,
+  `/arffornia:review`, `/arffornia:publish` (human only), and the stack skills.
+- Hooks: formatter after edits (`make fmt`), Stop blocked while `make check` fails, Stop reminder
+  when source changed but docs did not. `REVIEW.md` drives AI review.
+
+## Related repos
+- `<Repo>` — <why it matters here>.

@@ -1,0 +1,26 @@
+# REVIEW.md — <Repo name>
+
+How to review a change in this repo, for AI reviewers (`/arffornia:review`, the
+`arffornia:reviewer` agent) and humans. Keep it short and specific to this repo.
+
+## Output
+- First line: `Findings: N (blocking b, major m, minor k) · risk: high|medium|low`.
+- Every finding cites `path:line` and the evidence (quoted code, or a command and its output).
+  No evidence: ask a question instead.
+- At most 3 style remarks. Formatting belongs to `make fmt`, not to review.
+- End with a verdict: approve, request changes, or comment. Say what you did not verify.
+
+## Depth by risk
+| Risk | Paths in this repo | Depth |
+|---|---|---|
+| High | <auth, secrets, network input, release workflows, ...> | Every line, trace callers, try to break it |
+| Medium | <business logic, persistence, ...> | Every line, check tests cover it |
+| Low | <docs, tests only, ...> | Skim |
+
+## Always check
+- The change matches its issue's acceptance criteria and does nothing else.
+- `make check` output is in the PR; a test fails without the change.
+- <Repo-specific invariants, e.g. "every HTTP call has a timeout".>
+
+## Skip
+- <Generated files, lockfiles, vendored code, ...>

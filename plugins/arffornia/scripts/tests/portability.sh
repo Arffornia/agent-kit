@@ -21,7 +21,9 @@ else
 fi
 
 # One rule per line: <extended regex> TAB <why> TAB <fix>. Matched against non-comment lines.
-rules="$(cat <<'RULES'
+rules_file="$(mktemp "${TMPDIR:-/tmp}/portability.XXXXXX")"; trap 'rm -f "$rules_file"' EXIT
+# A heredoc inside $( ) trips bash 3.2 when the text holds parentheses or quotes: write a file.
+cat > "$rules_file" <<'RULES'
 \bdeclare -A\b	associative arrays need bash 4	use parallel indexed arrays or a temp file
 \blocal -A\b	associative arrays need bash 4	use parallel indexed arrays or a temp file
 \b(mapfile|readarray)\b	mapfile/readarray need bash 4	while IFS= read -r l; do arr+=("$l"); done <<EOF ... EOF
@@ -48,7 +50,6 @@ rules="$(cat <<'RULES'
 \bmktemp --	GNU long options for mktemp	mktemp "${TMPDIR:-/tmp}/name.XXXXXX"
 (^|[;&|(!{[:space:]])timeout 	coreutils timeout is not on macOS	with_timeout from lib.sh (falls back to gtimeout, then a watcher)
 RULES
-)"
 
 fail=0; checked=0
 while IFS= read -r f; do
@@ -65,9 +66,7 @@ while IFS= read -r f; do
     done <<EOF
 $hits
 EOF
-  done <<EOF
-$rules
-EOF
+  done < "$rules_file"
 done <<EOF
 $files
 EOF

@@ -152,6 +152,15 @@ touch FAIL; OUT="$(printf '{}' | ARFFORNIA_SKIP_CHECK=1 CLAUDE_PROJECT_DIR="$T/r
 RS() { CLAUDE_PROJECT_DIR="$T/repo" bash "$S/review-stamp.sh" "$@"; }
 git add -A >/dev/null; git commit -qm "wip: b" >/dev/null
 for i in 1 2 3 4 5 6 7 8 9 10 11 12; do echo "line $i" >> src/code.txt; done
+# A session that only reads is never asked for a review, even on a branch with unreviewed code.
+hook session-start.sh "{\"cwd\":\"$T/repo\",\"source\":\"startup\",\"session_id\":\"s-ro\"}"
+hook stop.sh "{\"cwd\":\"$T/repo\",\"stop_hook_active\":false,\"session_id\":\"s-ro\"}"
+! printf '%s' "$OUT" | grep -q 'arffornia:review' && ok "review gate: read-only session is not asked" || ko "read-only session" "$OUT"
+hook session-start.sh "{\"cwd\":\"$T/repo\",\"source\":\"compact\",\"session_id\":\"s-ro\"}"
+echo "line 13" >> src/code.txt
+hook stop.sh "{\"cwd\":\"$T/repo\",\"stop_hook_active\":false,\"session_id\":\"s-ro\"}"
+printf '%s' "$OUT" | grep -q 'arffornia:review' && ok "review gate: asks once the session changed the tree (compact keeps the start tree)" || ko "session changed" "$OUT"
+rm -f "$(git rev-parse --absolute-git-dir)/claude-harness/review-asked"
 st; printf '%s' "$OUT" | jq -e '.decision=="block"' >/dev/null && printf '%s' "$OUT" | grep -q 'arffornia:review' \
   && ok "review gate blocks a non-trivial unreviewed tree" || ko "review gate blocks" "$OUT"
 st true; [ -z "$OUT" ] || printf '%s' "$OUT" | jq -e '.decision!="block"' >/dev/null && ok "review gate asks only once per tree" || ko "review gate once" "$OUT"

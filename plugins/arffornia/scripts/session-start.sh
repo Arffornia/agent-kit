@@ -10,6 +10,7 @@ have git || exit 0
 root="$(repo_root)" || exit 0
 cd "$root"
 git rev-parse --verify --quiet HEAD >/dev/null || exit 0   # no commit yet
+record_session_tree   # the review gate only asks when this session changed the tree
 
 GH_TTL="${ARFFORNIA_GH_TTL:-600}"
 

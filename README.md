@@ -86,7 +86,7 @@ lint: ; $(if $(FILE),php -l $(FILE),composer validate)
 | Guards | `PreToolUse` hook + deny rules + sandbox | No force-push, no push to `main`, no `reset --hard` on a dirty tree, no hand-edited lockfiles or generated files, no secret reads; each block says what to do instead |
 | Per-file feedback | `PostToolUse` hook | Format + lint the edited file, findings returned at once |
 | Verify gate | `Stop` hook | `make check` must pass before the agent stops (cached per tree); docs and PROGRESS.md reminders |
-| End-of-task review | `Stop` hook review gate + `/arffornia:review` | Diff ≥ 10 code lines and no review stamp for the tree → the agent runs parallel finders and independent verifiers, confirmed findings only, max 3 rounds |
+| End-of-task review | `Stop` hook review gate + `/arffornia:review` | The session changed code, diff ≥ 10 code lines, no review stamp for the tree → the agent runs parallel finders and independent verifiers, confirmed findings only, max 3 rounds |
 | Improvement loop | `prompt-signals.sh`, guard hint, `/arffornia:harness-feedback`, `/arffornia:learning-card` | Corrections and friction become `harness-feedback` issues with a patch; a weekly run makes the PR; state-of-the-art finds become learning cards |
 | Handoff | `PreCompact` + `SessionEnd` hooks, `templates/PROGRESS.md`, `templates/docs/exec-plans/` | State survives compaction and session ends; never auto-committed |
 | Review depth | `templates/risk.yml`, `REVIEW.md.template` | Paths → light / standard / deep + security |
@@ -151,7 +151,7 @@ lint or CI check ([docs/HARNESS.md](docs/HARNESS.md#guides-and-sensors-the-escal
 
 ```bash
 claude plugin validate . && claude plugin validate plugins/arffornia
-bash plugins/arffornia/scripts/tests/run.sh            # hook suite (110 cases, offline)
+bash plugins/arffornia/scripts/tests/run.sh            # hook suite (112 cases, offline)
 bash plugins/arffornia/scripts/tests/portability.sh    # bash 3.2 / BSD traps
 shellcheck -S warning plugins/arffornia/scripts/*.sh plugins/arffornia/scripts/tests/*.sh cloud/setup.sh codex/sync-skills.sh templates/scripts/init
 nix develop --command bash plugins/arffornia/scripts/tests/run.sh   # same, in the pinned nix toolchain

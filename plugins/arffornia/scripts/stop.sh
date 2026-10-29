@@ -5,9 +5,10 @@
 #  2. Docs reminder: source changed on the branch but AGENTS.md / README.md / docs/ did not.
 #  3. Handoff reminder: work looks unfinished (uncommitted changes or open exec-plan items) and
 #     PROGRESS.md was not updated.
-#  R. Review gate (after the check passes): when the branch changes more than
-#     ARFFORNIA_REVIEW_MIN_LINES lines of code (default 10; docs, lockfiles and generated files
-#     excluded) and the current tree has no review stamp, block ONCE per tree state with "run the
+#  R. Review gate (after the check passes): when this session changed the work tree (vs the tree
+#     SessionStart recorded), the branch changes at least ARFFORNIA_REVIEW_MIN_LINES lines of code
+#     (default 10; docs, lockfiles and generated files excluded) and the current tree has no review
+#     stamp, block ONCE per tree state with "run the
 #     arffornia:review skill". The skill reviews with fresh subagents and writes the stamp
 #     (scripts/review-stamp.sh). Fixes after a review change the tree, so the next stop asks for a
 #     delta review; at most ARFFORNIA_REVIEW_MAX_ROUNDS rounds (default 3) per branch.
@@ -79,6 +80,9 @@ review_gate() {
   lines="$(code_lines_changed "$base")"
   [ "${lines:-0}" -ge "$min" ] || return 0
   tree="$(snapshot_tree)" || return 0
+  # A session that changed nothing (questions, reading, reporting) is never asked to review.
+  local sf
+  if sf="$(session_tree_file)" && [ -f "$sf" ] && [ "$(cat "$sf")" = "$tree" ]; then return 0; fi
   st="$sd/review-stamp"
   branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo detached)"
   round=0
@@ -99,7 +103,7 @@ review_gate() {
   fi
   local what="Run the arffornia:review skill now (in-session mode)"
   [ "$round" -gt 0 ] && what="Run the arffornia:review skill now for round $((round+1))/$cap: a delta review of what changed since the last review (the skill reads the range from the stamp)"
-  block_with "Before handing back: this branch changes $lines lines of code and the current tree has no independent review. $what. It sends fresh finder and verifier subagents over the diff (they never saw this conversation), keeps only confirmed findings and writes a review stamp. Then fix the confirmed blocking and major findings, or explain in your report why not. If the user asked for no review, they can set ARFFORNIA_SKIP_REVIEW=1."
+  block_with "Before handing back: this session changed code, the branch now differs from its base by $lines lines of code, and the current tree has no independent review. The repository owner's standing rule (AGENTS.md: review before handing back) is that every such change gets one, even when the prompt did not mention it. $what. It sends fresh finder and verifier subagents over the diff (they never saw this conversation), keeps only confirmed findings and writes a review stamp. Then fix the confirmed blocking and major findings, or explain in your report why not. If the user asked for no review, they can set ARFFORNIA_SKIP_REVIEW=1."
 }
 review_gate
 

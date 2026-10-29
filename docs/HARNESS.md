@@ -74,10 +74,10 @@ except PROGRESS.md).
 | `UserPromptSubmit` | `prompt-signals.sh` | When the prompt looks like a correction of how the agent works (English or French: "no, I said…", "non, je t'ai dit…"), adds one line: address it, then record the lesson with `harness-feedback` if the harness should have prevented it | < 0.05 s |
 | `PreToolUse` (Bash, Edit, Write, NotebookEdit, Read) | `guard.sh` | Blocks force-push, push to `main`/`master` (explicit or implied), deleting remote branches, pushing tags, `git reset --hard` / `checkout .` / `clean -f` on a dirty tree, `gh pr merge` / releases / secrets / repo settings, hand edits to lockfiles and generated paths, and reading or copying secret-like files. Every block says why and what to do instead. From the second identical block in a session it also asks for a `harness-feedback` record | < 0.1 s |
 | `PostToolUse` (Edit, Write) | `post-edit.sh` | Formats then lints only the edited file: `make fmt FILE=` / `make lint FILE=` when the Makefile recipe uses `$(FILE)`, else per-stack fallbacks if installed. Findings go back to Claude, capped at 25 lines | tool time |
-| `Stop` | `stop.sh` | 1. **Check gate**: if the branch has changes, `make check` must pass (cached per tree). 2. **Review gate**: if the branch changes ≥ 10 lines of code and the current tree has no review stamp, block once with "run the arffornia:review skill" (see below). 3. Once per change set: docs reminder and PROGRESS.md reminder | `make check` time, ~50 ms for the review gate |
+| `Stop` | `stop.sh` | 1. **Check gate**: if the branch has changes, `make check` must pass (cached per tree). 2. **Review gate**: if this session changed the work tree (vs the tree SessionStart recorded), the branch changes ≥ 10 lines of code, and the current tree has no review stamp, block once with "run the arffornia:review skill" (see below). 3. Once per change set: docs reminder and PROGRESS.md reminder | `make check` time, ~50 ms for the review gate |
 | `PreCompact`, `SessionEnd` | `handoff.sh` | Appends an automatic entry to PROGRESS.md: date, branch, commits ahead, uncommitted files, TODO/FIXME lines added on the branch. Skips duplicates, keeps the last 5, never commits | < 0.1 s |
 
-`plugins/arffornia/scripts/tests/run.sh` exercises every script in a throwaway repo (110 cases),
+`plugins/arffornia/scripts/tests/run.sh` exercises every script in a throwaway repo (112 cases),
 and `tests/portability.sh` rejects bash 4 and GNU-only constructs. The kit's CI runs both on
 Linux x86_64, Linux arm64 and macOS arm64 with the system `/bin/bash` 3.2.
 
@@ -97,7 +97,7 @@ reviews its diff with **independent subagents** before it hands back or publishe
 same multi-agent recipe as Anthropic's Code Review product.
 
 ```
-agent stops ─▶ Stop hook: make check green? ─▶ diff ≥ 10 code lines and no stamp for this tree?
+agent stops ─▶ Stop hook: make check green? ─▶ session changed the tree, diff ≥ 10 code lines, no stamp for this tree?
                                                    │ yes: block once: "run the arffornia:review skill"
                                                    ▼
    /arffornia:review (in-session mode, run by the agent)
@@ -116,7 +116,10 @@ Design choices, and why:
 
 - **Robust and cheap gate.** The hook is deterministic and costs ~50 ms: it computes the tree id
   of the work tree (`git write-tree` on a temp index, untracked files included) and compares
-  it with the stamp. It blocks **once per tree state**, never loops (Claude Code also caps a Stop
+  it with the stamp. It only asks when **this session changed the tree** (SessionStart records
+  the tree it found), so a session that only reads or answers questions on a branch with
+  unreviewed code is never sent on a review; the first dogfood run caught that case. It blocks
+  **once per tree state**, never loops (Claude Code also caps a Stop
   hook at 8 consecutive blocks), skips docs, lockfiles and generated files, and caps the rounds
   at 3 per branch. Only the model work costs tokens, and only when there is code to review.
 - **Independence.** Finders and verifiers are fresh subagents that never saw the conversation;

@@ -167,6 +167,27 @@ snapshot_commit() {
     || git -c user.name=arffornia -c user.email=harness@localhost commit-tree "$t" -p HEAD -m "arffornia review snapshot"
 }
 
+# session_tree_file: where the work-tree id at the start of this session is kept (per session id).
+session_tree_file() {
+  local sid sd
+  sid="$(json_get .session_id)"; [ -n "$sid" ] || return 1
+  sd="$(state_dir)" || return 1
+  printf '%s/session-%s.tree' "$sd" "$(printf '%s' "$sid" | tr -c 'A-Za-z0-9._-' '_')"
+}
+
+# record_session_tree: remember the work tree as this session found it (first call wins, so
+# resume and compact keep the original). Keeps the 20 newest records.
+record_session_tree() {
+  local f t
+  f="$(session_tree_file)" || return 0
+  [ -f "$f" ] && return 0
+  t="$(snapshot_tree)" || return 0
+  printf '%s\n' "$t" > "$f" 2>/dev/null || return 0
+  # shellcheck disable=SC2012
+  ls -t "$(dirname "$f")"/session-*.tree 2>/dev/null | sed '1,20d' | while IFS= read -r old; do rm -f "$old"; done
+  return 0
+}
+
 # Paths that never need a code review on their own: docs, lockfiles, generated output, handoff.
 review_exempt_path() {
   case "$1" in

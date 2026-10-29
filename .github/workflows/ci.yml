@@ -44,6 +44,8 @@ jobs:
         run: bash plugins/arffornia/scripts/tests/run.sh
       - name: Portability lint
         run: bash plugins/arffornia/scripts/tests/portability.sh
+      - name: Automation runner tests (when present)
+        run: if [ -f automations/tests/run-local.test.sh ]; then bash automations/tests/run-local.test.sh; else echo "no automations/ on this branch"; fi
       - name: Skill helper scripts (when present)
         run: |
           if [ -f evals/run.py ]; then python3 evals/run.py check; else echo "no evals/ on this branch"; fi

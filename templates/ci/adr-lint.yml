@@ -1,0 +1,30 @@
+# ADR lint (agent-kit template). Copy to .github/workflows/adr-lint.yml and
+# templates/ci/scripts/adr_lint.py to .github/scripts/adr_lint.py.
+# Checks docs/decisions/ (and docs/adr/) front-matter: status, date, supersedes/superseded_by.
+# Locally: python3 .github/scripts/adr_lint.py   (also good as part of `make lint`)
+name: ADR lint
+
+on:
+  pull_request:
+    paths:
+      - "docs/decisions/**"
+      - "docs/adr/**"
+      - ".github/scripts/adr_lint.py"
+  push:
+    branches: [main]
+    paths:
+      - "docs/decisions/**"
+      - "docs/adr/**"
+
+permissions:
+  contents: read
+
+jobs:
+  adr-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: python3 .github/scripts/adr_lint.py

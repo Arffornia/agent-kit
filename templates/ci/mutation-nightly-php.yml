@@ -1,0 +1,80 @@
+# Nightly mutation testing for Laravel/PHP with Infection (agent-kit template).
+# Copy to .github/workflows/mutation-nightly.yml. Report only: it never fails on a low score.
+# Scope: only the critical modules (MUTATE_PATHS); the full app is too slow and too noisy.
+# Read the score per area in the job summary; surviving mutants = tests that would not catch a bug.
+# The quality-score automation reads the latest report to update QUALITY_SCORE.md.
+name: Mutation (nightly)
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: "Comma-separated paths to mutate (default: MUTATE_PATHS)"
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  # Critical modules: money, votes, auth, progression writes. Adjust per repo.
+  MUTATE_PATHS: app/Services/ShopItemsService.php,app/Services/VoteService.php,app/Services/UserService.php,app/Http/Middleware
+  INFECTION_VERSION: 0.35.8
+
+jobs:
+  infection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: pcov
+          tools: composer, infection:${{ env.INFECTION_VERSION }}
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Prepare the app for tests
+        run: |
+          [ -f .env ] || cp .env.example .env
+          php artisan key:generate --force
+      - name: Run Infection on the critical modules
+        env:
+          INPUT_PATHS: ${{ inputs.paths }}
+        run: |
+          paths="${INPUT_PATHS:-$MUTATE_PATHS}"
+          mkdir -p build/mutation
+          [ -f infection.json5 ] || [ -f infection.json5.dist ] || cat > infection.json5 <<'JSON'
+          {
+            "$schema": "vendor/infection/infection/resources/schema.json",
+            "source": { "directories": ["app"] },
+            "logs": {
+              "text": "build/mutation/infection.log",
+              "summary": "build/mutation/summary.log",
+              "json": "build/mutation/infection.json",
+              "html": "build/mutation/infection.html"
+            },
+            "mutators": { "@default": true }
+          }
+          JSON
+          infection --threads=max --filter="$paths" --min-msi=0 --min-covered-msi=0 \
+            --no-progress --show-mutations=0 || echo "::warning::Infection exited non-zero (tests red or no coverage); see the log."
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Mutation score (Infection) — report only"
+            echo "Scope: \`${{ inputs.paths || env.MUTATE_PATHS }}\`"
+            echo '```'
+            cat build/mutation/summary.log 2>/dev/null || echo "no summary produced"
+            echo '```'
+            echo "Kill a survivor: open infection.html, pick an escaped mutant on a critical path, write the test that fails on it."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutation-report
+          path: build/mutation/
+          retention-days: 30

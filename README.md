@@ -1,101 +1,143 @@
 # agent-kit
 
-The shared Claude Code setup for the Arffornia repositories: one plugin marketplace with one
-plugin, `arffornia`, plus the templates each repo copies (`AGENTS.md`, `REVIEW.md`,
-`.claude/settings.json`, `CLAUDE.md`). Skills are written once here and used in every repo.
+The AI harness for the Arffornia repositories. One Claude Code plugin (`arffornia`) ships the
+skills, subagents and hooks; `templates/` holds the files each repo copies; `cloud/` and
+`codex/` make the same setup work in cloud sessions and for other agents.
+
+The goal: an agent starts every session already knowing the repo state, what to do next and
+how to verify it; it cannot break the rules that matter; and it proves its work before a human
+sees it. The design and its sources are in [docs/HARNESS.md](docs/HARNESS.md); the skill and
+subagent catalog is in [SKILLS.md](SKILLS.md).
 
 ```
-.claude-plugin/marketplace.json     marketplace "agent-kit", lists the plugin
+.claude-plugin/marketplace.json   marketplace "agent-kit" → plugins/arffornia
 plugins/arffornia/
-  .claude-plugin/plugin.json        plugin "arffornia"
-  skills/<name>/SKILL.md            the six skills below
-  agents/reviewer.md                read-only review subagent
-templates/                          files a repo copies to adopt the setup
+  .claude-plugin/plugin.json      plugin "arffornia"
+  skills/  agents/                workflows and independent reviewers (see SKILLS.md)
+  hooks/hooks.json                SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop, PreCompact, SessionEnd
+  scripts/                        the hook scripts (portable bash) + tests/run.sh
+templates/                        what a repo copies to adopt the harness
+cloud/setup.sh                    cloud environment setup script (warm toolchains and caches)
+codex/sync-skills.sh              expose the skills to Codex via .agents/skills
+docs/HARNESS.md                   how it all fits together
 ```
 
-## Install
+## Install (for you)
 
-In a Claude Code session:
+In Claude Code:
 
 ```
 /plugin marketplace add Arffornia/agent-kit
 /plugin install arffornia@agent-kit
 ```
 
-That installs it for you (user scope). **Project scope** (everyone working in a repo): copy
-`templates/.claude/settings.json` into the repo and commit it. Its `extraKnownMarketplaces` and
-`enabledPlugins` keys register the marketplace and enable `arffornia@agent-kit` for each
-contributor once they trust the folder. The same file can be produced with
-`claude plugin marketplace add Arffornia/agent-kit --scope project` and
-`claude plugin install arffornia@agent-kit --scope project`.
+Updates: `/plugin marketplace update agent-kit`, or enable auto-update for the marketplace in
+`/plugin` → Marketplaces. The plugin has no `version`, so you track commits on `main`.
 
-Updates: `/plugin marketplace update agent-kit`, or turn on auto-update for the marketplace in
-`/plugin` → Marketplaces. The plugin has no `version`, so users track commits on `main`.
+## Adopt in a repo (3 commands)
 
-## Skills
+From the repo root, with agent-kit cloned next to it (`../agent-kit`):
 
-Invoke as `/arffornia:<skill>`; Claude also loads them on its own when the task matches,
-except `publish`.
+```bash
+(cd ../agent-kit/templates && cp -Rn .claude docs scripts CLAUDE.md PROGRESS.md GOLDEN_PRINCIPLES.md QUALITY_SCORE.md risk.yml "$OLDPWD")
+cp -n ../agent-kit/templates/AGENTS.md.template AGENTS.md; cp -n ../agent-kit/templates/REVIEW.md.template REVIEW.md
+scripts/init                       # fresh clone → deps → .env from example → green make check
+```
 
-| Skill | What it does |
-|---|---|
-| `work-ticket` | Issue → branch `<type>/<n>-slug` → implement + test → `make check` → PR with the template, labels and `Closes #n`. Also drafts issues with the label taxonomy (`type:`, `area:`, `priority:`, `effort:`; `agent-ready` only with acceptance criteria). Arffornia edition of Brian's `work-ticket`. |
-| `publish` | **Human-invoked only** (`disable-model-invocation: true`). Verifies the branch, tree and secrets, runs `make check`, fills the PR template, pushes and opens a **draft** PR. |
-| `mc-gametest` | Write, run and debug NeoForge 1.21.1 GameTests in Arffornia_Mods (`platform` template, `@GameTestHolder`, fake backend, `runGameTestServer`, reading failures). Based on Arffornia_Mods PR #48. |
-| `modpack-change` | Add/upgrade/remove a mod in Arffornia_Provisioning: exact CurseForge/Modrinth/GitHub ids, client vs server side, duplicates, `make indexes`, one `content(<kind>):` PR never mixed with tooling. |
-| `review` | Risk-based review following the repo's `REVIEW.md`: depth by risk, `path:line` evidence for every finding, max 3 style remarks, findings count first. |
-| `i18n-sync` | Keep en/fr keys in sync (launcher vue-i18n, Laravel `lang/`, mod `en_us`/`fr_fr`), draft missing French and list it under "Translations to review" in the PR. |
+`cp -n` never overwrites a file the repo already has. Then:
 
-Agent: `arffornia:reviewer` (Opus, read-only tools, preloads `review`). Use it before
-`/arffornia:publish`, or ask "review PR #12 with the reviewer agent".
+- delete the `.claude/rules/*.md` files for stacks the repo does not use (`java-neoforge.md`
+  and `java-velocity.md` share `src/main/java/**`: keep one);
+- fill the placeholders (`<...>`) in `AGENTS.md` (keep it ≤100 lines), `REVIEW.md`,
+  `QUALITY_SCORE.md` and `risk.yml`, and the "repo-specific" block of `scripts/init`;
+- **coming from v1**: the old `.claude/settings.json` was kept by `cp -n`. Replace it with the
+  v2 file, or at least delete its `hooks` key: the plugin now ships those hooks, and keeping
+  both runs `make fmt` and `make check` twice;
+- CI workflows and architecture guards come from `templates/ci/` and `templates/guards/`
+  (see their own README);
+- open one PR: `chore: AI harness v2 (agent-kit templates)`. Everyone who trusts the folder
+  gets the plugin through `.claude/settings.json` (`extraKnownMarketplaces` + `enabledPlugins`).
 
-## Adopt in a repo
+The repo needs a Makefile with `check` (and ideally `test`, `lint`, `fmt`, `build`). Make
+`fmt` and `lint` accept `FILE=<path>` so the post-edit hook can work on one file:
 
-1. Copy the templates:
-   ```bash
-   KIT=../agent-kit/templates
-   mkdir -p .claude && cp $KIT/.claude/settings.json .claude/
-   cp $KIT/REVIEW.md.template REVIEW.md
-   [ -f AGENTS.md ] || cp $KIT/AGENTS.md.template AGENTS.md
-   [ -f CLAUDE.md ] || cp $KIT/CLAUDE.md CLAUDE.md
-   ```
-2. Fill `REVIEW.md` with the repo's real risk paths, invariants and files to skip.
-3. Keep `AGENTS.md` under 150 lines; add the "AI setup" section from the template.
-4. The repo needs `make check`; `make fmt` is optional (the formatter hook does nothing without it).
-5. One PR, title `chore: AI setup (agent-kit plugin, settings, REVIEW.md)`. Arffornia_Proxy is the pilot.
+```make
+fmt:  ; $(if $(FILE),pint $(FILE),pint)
+lint: ; $(if $(FILE),php -l $(FILE),composer validate)
+```
 
-### What `templates/.claude/settings.json` does
+## What each layer does
 
-- **deny**: reading/editing `.env*` (except `.env.example`) and `secrets/**`; reading keys and
-  credential files (`*.pem`, `*.key`, `*.jks`, `credentials.json`, `~/.ssh`, `~/.aws`, `~/.kube`,
-  `~/.config/gh`, `~/.npmrc`, `~/.gradle/gradle.properties`); `gh pr merge` and `gh release`.
-- **ask**: `git push` always asks.
-- **PostToolUse** after `Edit|Write|MultiEdit`: runs `make fmt FILE=<edited file>` when the
-  Makefile has a `fmt` target. Never blocks.
-- **Stop #1**: if the branch has changes, runs `make check`; when it fails, blocks the stop and
-  feeds the last 40 lines back to Claude. A pass is cached per tree state in `.git/`, so an
-  unchanged tree is not rebuilt. `stop_hook_active` prevents loops.
-- **Stop #2**: if source dirs (`src/ app/ routes/ resources/ lib/ database/`) changed on the
-  branch but `AGENTS.md`, `README.md` and `docs/` did not, reminds Claude once per change set.
+| Layer | Where | What you get |
+|---|---|---|
+| Context | `templates/AGENTS.md.template` (≤100-line map), `templates/.claude/rules/*.md` (conventions loaded by path: Laravel, Electron/Vue, NeoForge, Velocity, TS libs, Kubernetes, docs/Noodle), `templates/GOLDEN_PRINCIPLES.md` | The agent reads a map, then only the rules for the files it touches |
+| Repo-state card | `SessionStart` hook | Branch, dirty files, last commits, the PR and its CI, PROGRESS.md / active exec plan, top `agent-ready` issues, verify commands: before the first prompt |
+| Issue context | `UserPromptSubmit` hook | Say `#12` and the issue's title, labels and acceptance criteria are already in context |
+| Guards | `PreToolUse` hook + deny rules + sandbox | No force-push, no push to `main`, no `reset --hard` on a dirty tree, no hand-edited lockfiles or generated files, no secret reads; each block says what to do instead |
+| Per-file feedback | `PostToolUse` hook | Format + lint the edited file, findings returned at once |
+| Verify gate | `Stop` hook | `make check` must pass before the agent stops (cached per tree); docs and PROGRESS.md reminders |
+| Handoff | `PreCompact` + `SessionEnd` hooks, `templates/PROGRESS.md`, `templates/docs/exec-plans/` | State survives compaction and session ends; never auto-committed |
+| Review depth | `templates/risk.yml`, `REVIEW.md.template` | Paths → light / standard / deep + security |
+| Quality | `templates/QUALITY_SCORE.md` | Area × grade × gaps (issue links), kept current by an automation |
+| One-command setup | `templates/scripts/init` | Deps, `.env` from example, `make check`, next steps |
+| Skills and subagents | `plugins/arffornia/skills/`, `agents/` | See [SKILLS.md](SKILLS.md) |
+| CI, guards, automations | `templates/ci/`, `templates/guards/`, `automations/` | AI review pipeline, architecture guards, scheduled agents |
 
-The hooks are inline shell because settings cannot reference plugin files; they are written to
-be no-ops outside a git repo or without a Makefile.
+Hook details, budgets and escape hatches (`ARFFORNIA_SKIP_CHECK=1`, `ARFFORNIA_NO_GH=1`):
+[docs/HARNESS.md#the-hooks](docs/HARNESS.md#the-hooks).
+
+## Cloud environments
+
+Cloud sessions (claude.ai/code, Claude Code on the web) run in a fresh Ubuntu VM. A **setup
+script** runs as root before Claude Code starts, and when it finishes in about five minutes
+Anthropic snapshots the filesystem and reuses it for later sessions. So the slow part (Gradle
+distributions, NeoForge/Minecraft artifacts, Composer and npm caches, helm/kustomize) is paid
+once per environment, not once per session: sessions start hot and `make check` does not begin
+with a 3-minute download.
+
+1. Open [claude.ai/code](https://claude.ai/code), edit your environment (or create one named
+   `arffornia`), select **Setup script**, then **Choose file** and pick `cloud/setup.sh` (or
+   paste its content).
+2. Keep network access on **Trusted** or add the hosts it needs (GitHub, Maven Central,
+   `maven.neoforged.net`, `services.gradle.org`, Packagist, npm, `get.helm.sh`).
+3. Optional: edit the settings block at the top (`WARM`, `TOOLS`, `PHP_EXTRA="8.4"`,
+   `BUDGET`). Environment variables are not set while the script runs, so set values there.
+4. Save. The first session runs the script (log: `/var/log/arffornia-setup.log`); later ones
+   start from the snapshot. The cache is rebuilt when you change the script or after ~7 days.
+
+The script is idempotent, runs its jobs in parallel under a 270 s budget, never fails the
+session (it always exits 0), and warms caches from shallow clones in `/opt/arffornia/warm`, so
+it is independent of which repo the session opens. Note: `Arffornia_Website`'s current
+`composer.lock` needs PHP 8.4 while the VM ships 8.3; set `PHP_EXTRA="8.4"` until
+[Arffornia_Website#52](https://github.com/Arffornia/Arffornia_Website/issues/52) settles the runtime.
+
+## Codex and other agents
+
+Skills follow the open SKILL.md format. To make them visible to Codex (which scans
+`.agents/skills/` from the working directory up to the repo root):
+
+```bash
+../agent-kit/codex/sync-skills.sh            # copy into .agents/skills/ (commit for Codex cloud)
+../agent-kit/codex/sync-skills.sh --link     # symlink to your kit checkout (local only)
+../agent-kit/codex/sync-skills.sh --check    # exit 1 when the copies drift (CI / audit)
+../agent-kit/codex/sync-skills.sh --clean    # remove what the script added
+```
+
+It only touches the folders it lists in `.agents/skills/.agent-kit`; skills the repo wrote
+itself are never overwritten. Hooks are Claude Code specific; Codex gets the same rules
+through `AGENTS.md`, which it reads natively.
 
 ## Propose a new skill: "twice → a skill"
 
-When you (or an agent) do the same multi-step action twice, it becomes a skill.
+When you (or an agent) do the same multi-step action twice, it becomes a skill: open an issue
+here (`type: feature`, `area: ai`, the two occurrences and the steps), then follow
+[SKILLS.md](SKILLS.md). The same rule applies to sensors: a rule ignored twice becomes a hook,
+lint or CI check ([docs/HARNESS.md](docs/HARNESS.md#guides-and-sensors-the-escalation-rule)).
 
-1. Open an issue here: `type: feature`, `area: ai`, title `Add <name> skill`, with the two times
-   it happened and the steps.
-2. Add `plugins/arffornia/skills/<name>/SKILL.md`: a `description` that says what and when,
-   steps that can be followed literally, under ~150 lines. Add
-   `disable-model-invocation: true` if it pushes, publishes or deletes anything.
-3. `claude plugin validate .` and `claude plugin validate plugins/arffornia` pass.
-4. Add a row to the Skills table above. PR, Brian merges.
-
-## Validate
+## Validate a change to the kit
 
 ```bash
-claude plugin validate .                    # marketplace
-claude plugin validate plugins/arffornia    # plugin, skills, agent
+claude plugin validate . && claude plugin validate plugins/arffornia
+bash plugins/arffornia/scripts/tests/run.sh
+shellcheck -S warning plugins/arffornia/scripts/*.sh cloud/setup.sh codex/sync-skills.sh templates/scripts/init
 ```

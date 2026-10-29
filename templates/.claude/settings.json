@@ -7,13 +7,17 @@
       "Read(!.env.example)",
       "Edit(.env)",
       "Edit(.env.*)",
+      "Edit(!.env.example)",
       "Read(secrets/**)",
       "Edit(secrets/**)",
       "Read(**/*.pem)",
       "Read(**/*.key)",
       "Read(**/*.p12)",
+      "Read(**/*.pfx)",
       "Read(**/*.jks)",
       "Read(**/*.keystore)",
+      "Read(**/*.tfvars)",
+      "Read(**/*.tfstate)",
       "Read(**/credentials.json)",
       "Read(**/service-account*.json)",
       "Read(~/.ssh/**)",
@@ -24,12 +28,35 @@
       "Read(~/.npmrc)",
       "Read(~/.gradle/gradle.properties)",
       "Bash(gh pr merge *)",
-      "Bash(gh release *)"
+      "Bash(gh release *)",
+      "Bash(gh secret *)",
+      "Bash(gh repo delete *)",
+      "Bash(gh repo edit *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)"
     ],
     "ask": [
       "Bash(git push)",
       "Bash(git push *)"
     ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "filesystem": {
+      "allowWrite": ["~/.gradle", "~/.m2", "~/.npm", "~/.cache", "~/.composer", "~/.config/composer", "~/.local/share/composer"],
+      "denyRead": ["~/.ssh", "~/.aws", "~/.kube", "~/.config/gh", "~/.docker/config.json", "~/.gnupg", "~/.npmrc", "~/.gradle/gradle.properties"]
+    },
+    "network": {
+      "allowedDomains": [
+        "github.com", "*.github.com", "*.githubusercontent.com", "ghcr.io",
+        "registry.npmjs.org", "repo.packagist.org", "packagist.org", "*.packagist.org", "getcomposer.org",
+        "services.gradle.org", "plugins.gradle.org", "repo.maven.apache.org", "repo1.maven.org",
+        "maven.neoforged.net", "maven.parchmentmc.org", "maven.ftb.dev", "cursemaven.com", "jitpack.io",
+        "api.modrinth.com", "cdn.modrinth.com", "api.curse.tools", "*.forgecdn.net",
+        "piston-meta.mojang.com", "piston-data.mojang.com", "libraries.minecraft.net", "resources.download.minecraft.net",
+        "pypi.org", "files.pythonhosted.org"
+      ]
+    }
   },
   "extraKnownMarketplaces": {
     "agent-kit": {
@@ -41,35 +68,5 @@
   },
   "enabledPlugins": {
     "arffornia@agent-kit": true
-  },
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "f=$(jq -r '.tool_input.file_path // empty' 2>/dev/null); cd \"$CLAUDE_PROJECT_DIR\" || exit 0; grep -qE '^fmt:' Makefile 2>/dev/null || exit 0; make fmt FILE=\"$f\" >/dev/null 2>&1 || echo \"make fmt failed after editing $f\" >&2; exit 0",
-            "timeout": 120
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "grep -q '\"stop_hook_active\": *true' && exit 0; cd \"$CLAUDE_PROJECT_DIR\" || exit 0; grep -qE '^check:' Makefile 2>/dev/null || exit 0; g=$(git rev-parse --git-dir 2>/dev/null) || exit 0; b=$(git merge-base HEAD origin/HEAD 2>/dev/null || git rev-parse HEAD); [ -z \"$(git status --porcelain)\" ] && [ \"$b\" = \"$(git rev-parse HEAD)\" ] && exit 0; k=$({ git rev-parse HEAD; git diff HEAD; git ls-files -o --exclude-standard -z | xargs -0 -r sha1sum; } 2>/dev/null | sha1sum | cut -c1-40); [ \"$(cat \"$g/claude-check-ok\" 2>/dev/null)\" = \"$k\" ] && exit 0; if out=$(make check 2>&1); then echo \"$k\" > \"$g/claude-check-ok\"; exit 0; fi; printf 'make check fails. Fix it before finishing, or tell the user it is red and why.\\n%s\\n' \"$(printf '%s' \"$out\" | tail -n 40)\" >&2; exit 2",
-            "timeout": 1200
-          },
-          {
-            "type": "command",
-            "command": "grep -q '\"stop_hook_active\": *true' && exit 0; cd \"$CLAUDE_PROJECT_DIR\" || exit 0; g=$(git rev-parse --git-dir 2>/dev/null) || exit 0; b=$(git merge-base HEAD origin/HEAD 2>/dev/null || git rev-parse HEAD); ch=$({ git diff --name-only \"$b\"; git ls-files -o --exclude-standard; } | sort -u); printf '%s\\n' \"$ch\" | grep -qE '^(src|app|routes|resources|lib|database)/' || exit 0; printf '%s\\n' \"$ch\" | grep -qE '(^|/)(AGENTS|README)\\.md$|^docs/' && exit 0; k=$(printf '%s' \"$ch\" | sha1sum | cut -c1-40); [ \"$(cat \"$g/claude-docs-reminded\" 2>/dev/null)\" = \"$k\" ] && exit 0; echo \"$k\" > \"$g/claude-docs-reminded\"; echo 'Source files changed but AGENTS.md, README.md and docs/ did not. If commands, layout, behaviour or gotchas changed, update them; otherwise say \"docs unchanged: <reason>\" and stop.' >&2; exit 2",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
   }
 }

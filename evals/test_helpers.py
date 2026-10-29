@@ -60,6 +60,23 @@ class RiskRouter(Tmp):
         self.assertIn("built-in", out["source"])
         self.assertEqual(out["overall"], "low")
 
+    def test_template_shape_first_match_and_security(self):
+        write(self.d, "risk.yml", """\
+            version: 1
+            default: standard
+            rules:
+              - {name: network-boundary, depth: deep, security: true, paths: ["**/network/**"]}
+              - {name: generated, depth: light, paths: ["package-lock.json"]}
+              - {name: docs, depth: light, paths: ["**/*.md", "docs/**"]}
+            escalate: {lines_changed: 400}
+            """)
+        out = json.loads(run("review/scripts/risk.py", "--json", "docs/network/a.md", "src/Foo.java", "package-lock.json", cwd=self.d).stdout)
+        levels = {f["path"]: (f["level"], f["rule"]) for f in out["files"]}
+        self.assertEqual(levels["docs/network/a.md"], ("high", "network-boundary (security)"))  # first match wins
+        self.assertEqual(levels["src/Foo.java"], ("medium", "(default)"))
+        self.assertEqual(levels["package-lock.json"][0], "low")
+        self.assertTrue(out["security"])
+
     def test_only_skipped_files(self):
         r = run("review/scripts/risk.py", "--json", "composer.lock", cwd=self.d)
         self.assertEqual(json.loads(r.stdout)["overall"], "skip")

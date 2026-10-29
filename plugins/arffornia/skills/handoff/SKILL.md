@@ -23,25 +23,24 @@ and keep its last lines: the handoff states whether the tree is green **now**.
 
 ## 2. Update PROGRESS.md
 
-Keep the file short: the newest entry on top, older entries trimmed to one line each once
-they are done (history is in git). Use the repo's template when it has one
-(`templates/PROGRESS.md` from agent-kit); otherwise the shape in
-[references/progress-format.md](references/progress-format.md):
+Use the repo's template (agent-kit `templates/PROGRESS.md`: a **Now** block the SessionStart
+hook shows to every session, and a **Log** the PreCompact/SessionEnd hooks append to). Shape
+and an example: [references/progress-format.md](references/progress-format.md).
 
-- **Now**: branch URL, PR URL (or "not pushed"), CI state, `make check` result with the time.
-- **Done this session**: each item with its commit or PR link and a one-line summary.
-- **Next step**: one concrete action the next session does first, with the exact command.
-- **Open questions / blocked on**: each with who decides (Brian, upstream) and the issue link.
-- **Gotchas found**: anything that cost time and is not yet in `AGENTS.md` or a rule file.
-  If it will bite again, also add it there (map, not manual: one line + a pointer).
+- **Now** (rewrite it): Goal with the issue URL; Done with branch/PR links and the verify
+  result with its time; Next step as one concrete action with the exact command; Blockers /
+  decisions needed with who decides and the issue link; Verify with; the active plan's path.
+- **Log**: replace this session's automatic entries with one summary line, newest first.
+- **Gotchas** that cost time and will bite again go to `AGENTS.md` or a `.claude/rules/`
+  file (map, not manual: one line plus a pointer), not to `PROGRESS.md`.
 
 Never paste secrets, tokens or personal paths. Facts only: no "should work", say what ran.
 
 ## 3. Update the exec plan, if one is active
 
-Tick finished steps in `Progress` with a UTC timestamp, append to `Surprises & discoveries`
-and `Decision log`, and keep `tasks.json` statuses in sync. The plan format is in
-[references/progress-format.md](references/progress-format.md) under "Exec plan update".
+Tick finished steps in `Progress` with a UTC timestamp, refresh `Verification evidence`, add
+`Decision log` rows and `Surprises and follow-ups`, and keep `tasks.json` statuses in sync
+(details under "Exec plan update" in [references/progress-format.md](references/progress-format.md)).
 
 ## 4. Commit the handoff
 

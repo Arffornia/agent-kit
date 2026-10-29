@@ -151,7 +151,7 @@ lint or CI check ([docs/HARNESS.md](docs/HARNESS.md#guides-and-sensors-the-escal
 
 ```bash
 claude plugin validate . && claude plugin validate plugins/arffornia
-bash plugins/arffornia/scripts/tests/run.sh            # hook suite (119 cases, offline)
+bash plugins/arffornia/scripts/tests/run.sh            # hook suite (130 cases, offline)
 bash plugins/arffornia/scripts/tests/portability.sh    # bash 3.2 / BSD traps
 shellcheck -S warning plugins/arffornia/scripts/*.sh plugins/arffornia/scripts/tests/*.sh cloud/setup.sh codex/sync-skills.sh templates/scripts/init
 nix develop --command bash plugins/arffornia/scripts/tests/run.sh   # same, in the pinned nix toolchain

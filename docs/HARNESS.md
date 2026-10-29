@@ -77,7 +77,7 @@ except PROGRESS.md).
 | `Stop` | `stop.sh` | 1. **Check gate**: if the branch has changes, `make check` must pass (cached per tree). 2. **Review gate**: if this session changed the work tree (vs the tree SessionStart recorded), the branch changes ≥ 10 lines of code, and the current tree has no review stamp, block once with "run the arffornia:review skill" (see below). 3. Once per change set: docs reminder and PROGRESS.md reminder | `make check` time, ~50 ms for the review gate |
 | `PreCompact`, `SessionEnd` | `handoff.sh` | Appends an automatic entry to PROGRESS.md: date, branch, commits ahead, uncommitted files, TODO/FIXME lines added on the branch. Skips duplicates, keeps the last 5, never commits | < 0.1 s |
 
-`plugins/arffornia/scripts/tests/run.sh` exercises every script in a throwaway repo (119 cases),
+`plugins/arffornia/scripts/tests/run.sh` exercises every script in a throwaway repo (130 cases),
 and `tests/portability.sh` rejects bash 4 and GNU-only constructs. The kit's CI runs both on
 Linux x86_64, Linux arm64 and macOS arm64 with the system `/bin/bash` 3.2.
 

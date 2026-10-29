@@ -188,9 +188,28 @@ record_session_tree() {
   return 0
 }
 
+# is_secret_path <path>: secret-like file (keys, .env, credentials); .example/.sample files are not.
+is_secret_path() { # <path>
+  local p="${1//\\//}" b
+  b="$(basename -- "$p" 2>/dev/null || printf '%s' "$p")"
+  case "$b" in
+    .env.example|.env.sample|.env.template|.env.dist|.env.testing.example|*.pub|*.example|*.sample) return 1 ;;
+  esac
+  case "$b" in
+    .env|.env.*|*.pem|*.key|*.p12|*.pfx|*.jks|*.keystore|*.kdbx|*.tfvars|*.tfstate|*.tfstate.*) return 0 ;;
+    id_rsa*|id_ecdsa*|id_ed25519*|id_dsa*|.netrc|.pgpass|.npmrc|.pypirc|.vault-token|kubeconfig*) return 0 ;;
+    credentials.json|credentials|.credentials.json|.git-credentials|service-account*.json|*-sa-key.json|client_secret*.json) return 0 ;;
+  esac
+  case "/$p" in
+    */secrets/*|*/.ssh/*|*/.aws/*|*/.kube/config|*/.docker/config.json|*/.config/gh/*|*/.gradle/gradle.properties|*/.gnupg/*|*/.config/gcloud/*) return 0 ;;
+  esac
+  return 1
+}
+
 # Paths that never need a code review on their own: docs, lockfiles, generated output, handoff.
 review_exempt_path() {
   case "$1" in
+    */SKILL.md|SKILL.md|*/agents/*.md|automations/*.md|*/references/*.md|.claude/*) return 1 ;;   # prompts are code
     *.md|docs/*|*/docs/*|LICENSE*|*.lock|package-lock.json|npm-shrinkwrap.json|pnpm-lock.yaml|gradle.lockfile) return 0 ;;
     src/generated/*|*.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico|*.svg|*.ogg|*.wav) return 0 ;;
   esac
@@ -203,8 +222,9 @@ code_lines_changed() {
   local base="$1" a d f n total=0
   while IFS="$(printf '\t')" read -r a d f; do
     [ -n "$f" ] || continue
-    case "$a" in ''|*[!0-9]*) continue ;; esac
     review_exempt_path "$f" && continue
+    case "$a" in -) total=$(( total + 10 )); continue ;; ''|*[!0-9]*) continue ;; esac   # binary: non-trivial
+    [ $(( a + d )) -eq 0 ] && { total=$(( total + 1 )); continue; }                     # rename / mode change
     total=$(( total + a + d ))
   done <<EOF_NUMSTAT
 $(git diff --numstat "$base" 2>/dev/null)
@@ -226,10 +246,13 @@ EOF_UNTRACKED
 code_lines_between() {
   local a d f total=0 out
   out="$(git diff --numstat "$1" "$2" 2>/dev/null)" || return 1
+  # mode-only changes do not show in --numstat: count them as a change
+  if [ -n "$(git diff --summary "$1" "$2" 2>/dev/null | grep ' mode change ' || true)" ]; then total=1; fi
   while IFS="$(printf '\t')" read -r a d f; do
     [ -n "$f" ] || continue
-    case "$a" in ''|*[!0-9]*) continue ;; esac
     review_exempt_path "$f" && continue
+    case "$a" in -) total=$(( total + 10 )); continue ;; ''|*[!0-9]*) continue ;; esac   # binary: non-trivial
+    [ $(( a + d )) -eq 0 ] && { total=$(( total + 1 )); continue; }                     # rename / mode change
     total=$(( total + a + d ))
   done <<EOF_BETWEEN
 $out

@@ -6,7 +6,7 @@
 #   review-stamp.sh diff [--stat]           print that diff (untracked files included)
 #   review-stamp.sh record --level L --counts "Findings: ..." [--blocking N] [--findings FILE.json]
 #                                           stamp the current tree as reviewed (one round)
-#   review-stamp.sh label <id> <fixed|wrong|intended|noise> [note]
+#   review-stamp.sh label [--round N] <id> <fixed|wrong|intended|noise> [note]   (default: latest round)
 #                                           what happened to a finding (feeds evals via the PR body)
 #   review-stamp.sh summary                 Markdown block for the PR body, with a machine-readable marker
 #
@@ -37,7 +37,11 @@ case "$cmd" in
   status)
     tree="$(snapshot_tree)" || die "cannot snapshot the work tree"
     round="$(cur_round)"
-    reviewed=no; [ "$(kv_get "$ST" tree)" = "$tree" ] && reviewed=yes
+    # Same rule as the Stop gate: the stamped tree, or one that differs only in docs/lockfiles.
+    reviewed=no; stamped="$(kv_get "$ST" tree)"
+    if [ -n "$stamped" ] && { [ "$stamped" = "$tree" ] || [ "$(code_lines_between "$stamped" "$tree" 2>/dev/null)" = 0 ]; }; then
+      reviewed=yes
+    fi
     lines="$(code_lines_changed "$base")"
     printf 'branch=%s\nbase=%s\ntree=%s\nreviewed=%s\nround=%s\nmax_rounds=%s\ncode_lines_changed=%s\n' \
       "$branch" "$base" "$tree" "$reviewed" "$round" "${ARFFORNIA_REVIEW_MAX_ROUNDS:-3}" "$lines"
@@ -54,16 +58,20 @@ case "$cmd" in
     if [ "$(cur_round)" -gt 0 ] && last="$(kv_get "$ST" commit)" && [ -n "$last" ] && git cat-file -e "$last" 2>/dev/null; then
       from="$last"
     fi
-    # Secret-like files never reach the transcript, even when untracked and not ignored.
+    # Secret-like files (same rule as the guard: is_secret_path) never reach the transcript,
+    # even when untracked and not ignored; .example/.sample files are reviewed normally.
+    set -- -- .
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      if is_secret_path "$f"; then
+        set -- "$@" ":(exclude,literal)$f"
+        printf 'review-stamp: not shown (secret-like path): %s\n' "$f" >&2
+      fi
+    done <<EOF_NAMES
+$(git diff --name-only "$from" "$cur" 2>/dev/null)
+EOF_NAMES
     # shellcheck disable=SC2086
-    git --no-pager diff $stat "$from" "$cur" -- . \
-      ':(glob,exclude)**/.env' ':(glob,exclude)**/.env.*' ':(glob,exclude)**/*.pem' ':(glob,exclude)**/*.key' \
-      ':(glob,exclude)**/*.p12' ':(glob,exclude)**/*.pfx' ':(glob,exclude)**/*.jks' ':(glob,exclude)**/*.keystore' \
-      ':(glob,exclude)**/*.tfvars' ':(glob,exclude)**/*.tfstate' ':(glob,exclude)**/credentials*.json' \
-      ':(glob,exclude)**/service-account*.json' ':(glob,exclude)**/secrets/**' ':(glob,exclude)**/id_rsa*' ':(glob,exclude)**/id_ed25519*'
-    git --no-pager diff --name-only "$from" "$cur" -- ':(glob)**/.env' ':(glob)**/.env.*' ':(glob)**/*.pem' ':(glob)**/*.key' \
-      ':(glob)**/credentials*.json' ':(glob)**/service-account*.json' ':(glob)**/secrets/**' ':(glob)**/*.tfvars' 2>/dev/null \
-      | grep -vE '\.(example|sample)$' | sed 's/^/review-stamp: not shown (secret-like path): /' >&2 || true
+    git --no-pager diff $stat "$from" "$cur" "$@"
     ;;
   record)
     level="" counts="" blocking="" findings=""
@@ -100,11 +108,17 @@ case "$cmd" in
     printf 'Recorded review round %s for %s (tree %s): %s\n' "$round" "$branch" "${tree:0:12}" "$counts"
     ;;
   label)
-    [ $# -ge 2 ] || die "usage: label <finding-id> <fixed|wrong|intended|noise> [note]"
+    lr=""; [ "${1:-}" = "--round" ] && { lr="${2:-}"; shift 2; }
+    [ $# -ge 2 ] || die "usage: label [--round N] <finding-id> <fixed|wrong|intended|noise> [note]"
     case "$2" in fixed|wrong|intended|noise) ;; *) die "label must be fixed, wrong, intended or noise" ;; esac
     need_jq
     r="$(cur_round)"
     [ "$r" -gt 0 ] || die "no review recorded on this branch yet"
+    if [ -n "$lr" ]; then
+      case "$lr" in ''|*[!0-9]*) die "--round needs a number" ;; esac
+      [ "$lr" -ge 1 ] && [ "$lr" -le "$r" ] || die "no round $lr on this branch (latest is $r)"
+      r="$lr"
+    fi
     # A label applies to that id in the latest round (each round numbers its findings from F1).
     jq -nc --arg d "$(now)" --arg b "$branch" --arg id "$1" --arg l "$2" --arg n "${3:-}" --argjson r "$r" \
       '{type:"label", date:$d, branch:$b, round:$r, id:$id, label:$l, note:$n}' >> "$LOG"
@@ -124,7 +138,7 @@ case "$cmd" in
           "### In-session review\n"
           + "Rounds: \($rev | length) · last: \($rev[-1].counts) · risk: \($rev[-1].level)\n"
           + ( if ($f | length) == 0 then "No confirmed findings.\n"
-              else ($f | map("- R\(.round // 0).\(.id) · \(.severity) · \(.lens) · `\(.path | gsub("`"; ""))` · \(.title | gsub("<!--|-->"; "")) → **\(.label)**") | join("\n")) + "\n" end )
+              else ($f | map("- R\(.round // 0).\(.id) · \(.severity) · \(.lens) · `\((.path // "") | tostring | gsub("[`<>]"; ""))` · \((.title // "") | tostring | gsub("[<>]"; "")) → **\(.label)**") | join("\n")) + "\n" end )
           + "\n<!-- arffornia-review v1 " + ({rounds: ($rev | length), level: $rev[-1].level, counts: $rev[-1].counts,
                findings: ($f | map({round, id, severity, lens, path, title, label}))} | tojson | gsub("--"; "-\\u002d")) + " -->"
         end' "$LOG"

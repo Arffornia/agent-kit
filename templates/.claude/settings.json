@@ -27,6 +27,9 @@
       "Read(~/.config/gh/**)",
       "Read(~/.npmrc)",
       "Read(~/.gradle/gradle.properties)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.git-credentials)",
+      "Read(~/.config/gcloud/**)",
       "Bash(gh pr merge *)",
       "Bash(gh release *)",
       "Bash(gh secret *)",
@@ -43,18 +46,59 @@
   "sandbox": {
     "enabled": true,
     "filesystem": {
-      "allowWrite": ["~/.gradle", "~/.m2", "~/.npm", "~/.cache", "~/.composer", "~/.config/composer", "~/.local/share/composer"],
-      "denyRead": ["~/.ssh", "~/.aws", "~/.kube", "~/.config/gh", "~/.docker/config.json", "~/.gnupg", "~/.npmrc", "~/.gradle/gradle.properties"]
+      "allowWrite": [
+        "~/.gradle",
+        "~/.m2",
+        "~/.npm",
+        "~/.cache",
+        "~/.composer",
+        "~/.config/composer",
+        "~/.local/share/composer"
+      ],
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.kube",
+        "~/.config/gh",
+        "~/.docker/config.json",
+        "~/.gnupg",
+        "~/.npmrc",
+        "~/.gradle/gradle.properties",
+        "~/.claude/.credentials.json",
+        "~/.git-credentials",
+        "~/.config/gcloud"
+      ]
     },
     "network": {
       "allowedDomains": [
-        "github.com", "*.github.com", "*.githubusercontent.com", "ghcr.io",
-        "registry.npmjs.org", "repo.packagist.org", "packagist.org", "*.packagist.org", "getcomposer.org",
-        "services.gradle.org", "plugins.gradle.org", "repo.maven.apache.org", "repo1.maven.org",
-        "maven.neoforged.net", "maven.parchmentmc.org", "maven.ftb.dev", "cursemaven.com", "jitpack.io",
-        "api.modrinth.com", "cdn.modrinth.com", "api.curse.tools", "*.forgecdn.net",
-        "piston-meta.mojang.com", "piston-data.mojang.com", "libraries.minecraft.net", "resources.download.minecraft.net",
-        "pypi.org", "files.pythonhosted.org"
+        "github.com",
+        "*.github.com",
+        "*.githubusercontent.com",
+        "ghcr.io",
+        "registry.npmjs.org",
+        "repo.packagist.org",
+        "packagist.org",
+        "*.packagist.org",
+        "getcomposer.org",
+        "services.gradle.org",
+        "plugins.gradle.org",
+        "repo.maven.apache.org",
+        "repo1.maven.org",
+        "maven.neoforged.net",
+        "maven.parchmentmc.org",
+        "maven.ftb.dev",
+        "cursemaven.com",
+        "jitpack.io",
+        "api.modrinth.com",
+        "cdn.modrinth.com",
+        "api.curse.tools",
+        "*.forgecdn.net",
+        "piston-meta.mojang.com",
+        "piston-data.mojang.com",
+        "libraries.minecraft.net",
+        "resources.download.minecraft.net",
+        "pypi.org",
+        "files.pythonhosted.org"
       ]
     }
   },

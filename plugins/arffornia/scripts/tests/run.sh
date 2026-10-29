@@ -213,6 +213,49 @@ rm -f "$HS/review-stamp" "$HS/review-asked"
 st; ! asked && ok "docs-only changes need no review" || ko "docs exempt" "$OUT"
 rm -f docs-note.md; git reset -q --soft HEAD~1
 
+# ---------- review-stamp edge cases (fresh repo) ----------
+git init -q --bare "$T/r2.git"; git init -q -b main "$T/r2"
+(
+  cd "$T/r2" || exit 1
+  git config user.email t@example.invalid; git config user.name test; git config commit.gpgsign false
+  git remote add origin "$T/r2.git"; echo base > a.txt; git add -A; git commit -qm init
+  git push -q origin main 2>/dev/null; git fetch -q origin; git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+  git switch -qc feat/2-edge
+)
+R2() { (cd "$T/r2" && bash "$S/review-stamp.sh" "$@"); }
+R2 label F1 fixed >/dev/null 2>&1 && ko "label before any review is refused" || ok "label before any review is refused"
+printf '//registry/:_authToken=npm-secret-token\n' > "$T/r2/.npmrc"; printf 'APP_KEY=\n' > "$T/r2/.env.example"
+d="$(R2 diff 2>&1)"; ! printf '%s' "$d" | grep -q 'npm-secret-token' && printf '%s' "$d" | grep -q '^+APP_KEY=' \
+  && ok "diff: hides .npmrc (guard's secret rule), still shows .env.example" || ko "diff secret rule" "$d"
+rm -f "$T/r2/.npmrc"
+for i in 1 2 3 4 5 6 7 8 9 10 11; do echo "x$i" >> "$T/r2/code.sh"; done
+printf '[{"id":"F1","severity":"major","lens":"security","path":null,"title":"<<!--!---->> sneaky"}]' > "$T/f3.json"
+R2 record --level high --counts "Findings: 1 (blocking 0, major 1, minor 0, pre-existing 0) · risk: high" --findings "$T/f3.json" >/dev/null
+echo "notes" >> "$T/r2/README.md"
+grep -q '^reviewed=yes$' <<<"$(R2 status)" && ok "status: docs-only change after the stamp stays reviewed (same rule as the gate)" || ko "status docs-only" "$(R2 status)"
+echo "x12" >> "$T/r2/code.sh"
+R2 record --level high --counts "Findings: 0 · risk: high" >/dev/null
+R2 label --round 1 F1 wrong "not a bug" >/dev/null && ok "label --round targets an earlier round" || ko "label --round"
+R2 label --round 9 F1 wrong >/dev/null 2>&1 && ko "label --round rejects a missing round" || ok "label --round rejects a missing round"
+sm="$(R2 summary 2>&1)"; mk="$(printf '%s\n' "$sm" | sed -n 's/^<!-- arffornia-review v1 \(.*\) -->$/\1/p')"
+grep -q 'R1.F1 .* \*\*wrong\*\*' <<<"$sm" && ! grep -q '<!--!' <<<"$sm" && [ -n "$mk" ] && printf '%s' "$mk" | jq -e '.findings|length==1' >/dev/null \
+  && ok "summary survives null paths and nested comment markers in titles" || ko "summary hostile" "$sm"
+printf '\001\002' > "$T/r2/blob.bin"; (cd "$T/r2" && git add blob.bin && git commit -qm bin)
+printf '\003\004' > "$T/r2/blob.bin"
+grep -q '^reviewed=no$' <<<"$(R2 status)" && ok "a binary change invalidates the stamp" || ko "binary change" "$(R2 status)"
+rm -f "$T/r2/blob.bin"; (cd "$T/r2" && git checkout -q -- . 2>/dev/null; git rm -q --cached blob.bin 2>/dev/null; true)
+mkdir -p "$T/r2/skills/x"; for i in 1 2 3 4 5 6 7 8 9 10 11; do echo "step $i" >> "$T/r2/skills/x/SKILL.md"; done
+grep -q '^reviewed=no$' <<<"$(R2 status)" && ok "SKILL.md changes are code for the gate (prompts are code)" || ko "skill md not exempt" "$(R2 status)"
+# A review note on a hook-driven continuation (stop_hook_active=true) still reaches the agent once.
+(cd "$T/r2" && rm -rf skills && R2 record --level high --counts "Findings: 1 (blocking 1, major 0, minor 0, pre-existing 0) · risk: high" >/dev/null)
+OUT="$(printf '{"cwd":"%s","stop_hook_active":true}' "$T/r2" | CLAUDE_PROJECT_DIR="$T/r2" bash "$S/stop.sh" 2>/dev/null)"
+printf '%s' "$OUT" | grep -q '1 blocking finding' && ok "review note reaches the agent on a stop_hook_active continuation" || ko "active note" "$OUT"
+# A file symlink to a secret is blocked for Edit/Write and Read.
+printf 'k' > "$T/id_ed25519"; ln -s "$T/id_ed25519" "$T/r2/innocent.txt"
+g block Write "$(jq -nc --arg p "$T/r2/innocent.txt" '{file_path:$p}')"
+g block Read "$(jq -nc --arg p "$T/r2/innocent.txt" '{file_path:$p}')"
+rm -f "$T/r2/innocent.txt"
+
 # ---------- handoff ----------
 printf '// TODO: handle the empty case\n' >> src/a.txt
 hook handoff.sh "{\"cwd\":\"$T/repo\",\"hook_event_name\":\"PreCompact\",\"trigger\":\"auto\"}"

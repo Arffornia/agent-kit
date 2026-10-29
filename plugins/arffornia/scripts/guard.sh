@@ -32,23 +32,6 @@ block() { # <why> <instead>
 }
 
 # ---------- secret-like paths -----------------------------------------------------------
-is_secret_path() { # <path>
-  local p="${1//\\//}" b
-  b="$(basename -- "$p" 2>/dev/null || printf '%s' "$p")"
-  case "$b" in
-    .env.example|.env.sample|.env.template|.env.dist|.env.testing.example|*.pub|*.example|*.sample) return 1 ;;
-  esac
-  case "$b" in
-    .env|.env.*|*.pem|*.key|*.p12|*.pfx|*.jks|*.keystore|*.kdbx|*.tfvars|*.tfstate|*.tfstate.*) return 0 ;;
-    id_rsa*|id_ecdsa*|id_ed25519*|id_dsa*|.netrc|.pgpass|.npmrc|.pypirc|.vault-token|kubeconfig*) return 0 ;;
-    credentials.json|credentials|service-account*.json|*-sa-key.json|client_secret*.json) return 0 ;;
-  esac
-  case "/$p" in
-    */secrets/*|*/.ssh/*|*/.aws/*|*/.kube/config|*/.docker/config.json|*/.config/gh/*|*/.gradle/gradle.properties|*/.gnupg/*) return 0 ;;
-  esac
-  return 1
-}
-
 # ---------- generated / lock files (Edit, Write) ------------------------------------------
 check_generated() { # <abs path>
   local p="${1//\\//}" lp b rel root
@@ -82,7 +65,10 @@ check_generated() { # <abs path>
       block "$rel is a dependency or build output directory; edits are overwritten on the next install/build." \
         "change the source that produces it (or the dependency version), then rebuild with the Makefile target." ;;
   esac
-  if is_secret_path "$lp" || is_secret_path "$p"; then   # both: a symlinked ~/.ssh or /run/secrets resolves elsewhere
+  local tgt=""
+  [ -L "$lp" ] && tgt="$(readlink "$lp" 2>/dev/null || true)"
+  case "$tgt" in ''|/*) ;; *) tgt="$(dirname -- "$lp")/$tgt" ;; esac
+  if is_secret_path "$lp" || is_secret_path "$p" || { [ -n "$tgt" ] && is_secret_path "$tgt"; }; then   # both: a symlinked ~/.ssh or /run/secrets resolves elsewhere
     block "$b looks like a secret file; secrets never go through an agent or into git." \
       "edit the matching .env.example (placeholders only) and tell the maintainer which value to set."
   fi
@@ -246,7 +232,8 @@ case "$tool" in
     ;;
   Read)
     f="$(json_get .tool_input.file_path)"
-    if [ -n "$f" ] && is_secret_path "$f"; then
+    t=""; [ -n "$f" ] && [ -L "$f" ] && t="$(readlink "$f" 2>/dev/null || true)"
+    if [ -n "$f" ] && { is_secret_path "$f" || { [ -n "$t" ] && is_secret_path "$t"; }; }; then
       block "$(basename -- "$f") looks like a secret file; its content must not enter the conversation." \
         "read the matching .env.example or docs; ask the maintainer for the value if a task truly needs it."
     fi

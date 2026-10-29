@@ -190,8 +190,10 @@ would want to learn (a technique, a design, a benchmark result, a tool few peopl
 drafts a tech-watch card with `/arffornia:learning-card`. The format and destination belong to
 the tech-watch agent's `veille/README.md` in Brian's playbook repo (`$AGENT_PLAYBOOK_DIR`,
 default `~/agent-playbook`); when that README is absent, the card goes to
-`~/agent-playbook/veille/inbox/<date>-<slug>.md`. A card is short: what it is, why it matters,
-how it works, how to apply it here, sources with dates.
+`~/agent-playbook/veille/inbox/<date>-<slug>.md`. Today that README asks for a 10-line inbox
+proposal when in doubt, and at most one full card per run (how ours works, how the best do it,
+what is ahead of the curve, what we could do next, glossary, sources), written only after the
+main task is done.
 
 ## Guides and sensors: the escalation rule
 

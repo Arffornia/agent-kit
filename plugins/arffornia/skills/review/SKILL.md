@@ -58,7 +58,9 @@ secret); state the level and why in one line.
 
 ## 3. Find (parallel, one message)
 
-Launch every finder in **one** message, each an `arffornia:review-finder` subagent given only:
+Launch every finder in **one** message and in the **foreground** (`run_in_background: false`):
+a background subagent can let the turn, and a headless `claude -p` run, end before verification.
+Each is an `arffornia:review-finder` subagent given only:
 its lens brief from [references/pipeline.md](references/pipeline.md), the diff command (in-session:
 `bash "$S" diff`), the base ref, the acceptance criteria, the rule file paths and the risk line.
 Tell each: "Tools work; do not probe them. Report only; never edit, commit or push." When
@@ -69,7 +71,7 @@ separate pass that starts from each claim, and say "sequential fallback" in the 
 
 Give every candidate to an `arffornia:review-verifier` that did not find it, with the claim,
 the cited location, how to confirm, and the change's intent, nothing else. Launch them in
-parallel. Keep `confirmed` only (at high risk: confirmed by both). An `unsure` that matters
+parallel, in the foreground. Do not stop or report until every verdict is in. Keep `confirmed` only (at high risk: confirmed by both). An `unsure` that matters
 becomes a QUESTION, never a finding. Drop the classes in
 [references/false-positives.md](references/false-positives.md).
 
@@ -111,7 +113,7 @@ each finding once you know what it was; labels feed `evals/` through the PR body
 bash "$S" label F1 fixed|wrong|intended|noise "<one line why>"
 ```
 `wrong` = the finding is false; `intended` = true but deliberate; `noise` = true but not worth
-saying. Fixing changes the tree, so the next stop asks for a short delta round; at most 3.
+saying. A label applies to that id in the latest round (the PR summary shows `R2.F1`). Fixing changes the tree, so the next stop asks for a short delta round; at most 3.
 A finding labelled `wrong` or `noise` twice for the same reason is harness feedback: record it
 with `/arffornia:harness-feedback`.
 

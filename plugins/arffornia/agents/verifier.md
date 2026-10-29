@@ -4,6 +4,7 @@ description: Runs the real thing to prove an Arffornia change works - website wi
 tools: Read, Glob, Grep, Bash
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
+effort: high
 color: cyan
 skills:
   - arffornia:verify

@@ -191,6 +191,17 @@ class SkillLint(Tmp):
         self.assertIn("broken link", bad)
         self.assertFalse([o for o in out if "good" in o["path"] and o["level"] == "ERROR"])
 
+    def test_side_effect_approval_marker(self):
+        body = "Open it: `gh api -X POST repos/o/r/issues -f title=x`.\n"
+        write(self.d, "plugins/p/skills/noted/SKILL.md", "---\nname: noted\ndescription: \"Record a lesson. Use when friction.\"\n---\n"
+              "<!-- side-effect-approved: owner approved issue creation in o/r only -->\n" + body)
+        write(self.d, "plugins/p/skills/vague/SKILL.md", "---\nname: vague\ndescription: \"Record a lesson. Use when friction.\"\n---\n"
+              "<!-- side-effect-approved: -->\n" + body)
+        r = run("harness-audit/scripts/skill_lint.py", "--json", cwd=self.d)
+        out = json.loads(r.stdout)
+        self.assertFalse([o for o in out if "noted" in o["path"] and "side effect" in o["msg"]])
+        self.assertTrue([o for o in out if "vague" in o["path"] and "side effect" in o["msg"]])
+
     def test_kit_itself_is_clean(self):
         r = run("harness-audit/scripts/skill_lint.py", cwd=ROOT)
         self.assertEqual(r.returncode, 0, r.stdout)

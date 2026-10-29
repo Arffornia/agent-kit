@@ -4,7 +4,7 @@ description: Read-only security reviewer for Arffornia changes and surfaces - au
 tools: Read, Glob, Grep, Bash
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: opus
-effort: high
+effort: max
 color: red
 skills:
   - arffornia:threat-model

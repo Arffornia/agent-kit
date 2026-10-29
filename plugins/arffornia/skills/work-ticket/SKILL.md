@@ -35,11 +35,15 @@ someone searching history in six months. Write for all three; the same holds for
    or docs when commands, layout or behaviour changed.
 7. **Prove it.** Run the real thing for behaviour changes (`arffornia:verifier` agent:
    Playwright for the website, Playwright-Electron for the launcher, `runGameTestServer`
-   for the mod) and keep the evidence. Then get an independent review
-   (`arffornia:reviewer` agent) and fix every confirmed blocking or major finding.
+   for the mod) and keep the evidence. Then run `/arffornia:review` (in-session mode: fresh
+   finder and verifier subagents, a stamp for the tree; the Stop hook asks for it anyway),
+   fix every confirmed blocking or major finding and label each finding.
 8. **Commit** with Conventional Commits, scope = component, and the session's trailers:
    `fix(proxy): add HTTP timeouts`.
-9. **Stop before pushing.** Pushing makes work public: Brian runs `/arffornia:publish <n>`,
+9. **Harness lessons.** If something in the harness got in the way (a misleading skill step,
+   a guard that blocked a legitimate action, a missing rule), record it with
+   `/arffornia:harness-feedback` before you finish.
+10. **Stop before pushing.** Pushing makes work public: Brian runs `/arffornia:publish <n>`,
    or explicitly asks you to push. Write the handoff (`PROGRESS.md`) if the work continues.
 
 PR body (for publish): What / Why (`Closes #<n>`) / How it was tested (commands and real

@@ -23,5 +23,13 @@ The pipeline follows these, checked on 2026-10-29:
   dropped, a false-positive list, links with a full SHA and line range.
   https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review
 
-What we add for Arffornia: routing by `risk.yml`, two verifiers at high risk, a `major` tier,
+- Claude Code best practices: review "by someone who didn't write the code … in a fresh
+  subagent that never saw your conversation"; "A reviewer that's asked to find problems will
+  always find *something*" (hence confirmed-only and the style cap); enforce "done" with a Stop
+  hook. https://code.claude.com/docs/en/best-practices
+- Why the Stop gate requires this skill and not the bundled `/code-review` (no tree stamp,
+  background by default, ignores REVIEW.md, no risk routing): agent-kit `docs/HARNESS.md`,
+  section "Why not just require the built-in /code-review?".
+
+What we add for Arffornia: the in-session gate with a stamp per tree and a 3-round cap, routing by `risk.yml`, two verifiers of different models at high risk, a `major` tier,
 the "max 3 style remarks" cap, and evals of real audit findings in `evals/reviewer/`.

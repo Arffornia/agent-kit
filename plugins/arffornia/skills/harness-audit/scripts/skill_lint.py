@@ -13,7 +13,9 @@ Checks (ERROR fails, WARN is advice):
   ERROR  an unquoted description containing " #" (YAML truncates it as a comment)
   ERROR  a relative link or `${CLAUDE_SKILL_DIR}/...` path that does not exist
   ERROR  side effects (git push, gh pr create, gh api -X POST/PATCH/DELETE, gh release,
-         kubectl apply, rm -rf) without `disable-model-invocation: true` (skills only)
+         kubectl apply, rm -rf) without `disable-model-invocation: true` (skills only), unless
+         SKILL.md carries `<!-- side-effect-approved: <who approved, what exactly> -->`
+         for a narrow, owner-approved write (e.g. harness-feedback opening agent-kit issues)
   WARN   description over 600 chars (listing cut is 1,536 for description+when_to_use)
          or without a "when"/"use" trigger phrase
   WARN   SKILL.md body over 200 lines (the doc's hard ceiling is 500); AGENTS.md over 100 lines
@@ -158,7 +160,8 @@ def main() -> int:
                 for f in glob.glob(os.path.join(sd, sub, "**", "*"), recursive=True):
                     if os.path.isfile(f) and "__pycache__" not in f and os.path.relpath(f, sd) not in text and os.path.basename(f) not in text:
                         add("WARN", path, f"{os.path.relpath(f, sd)} is never mentioned in SKILL.md")
-            if SIDE_EFFECT.search(text) and str(fm.get("disable-model-invocation", "")).lower() not in ("true", "yes", "on", "1"):
+            approved = re.search(r"<!--\s*side-effect-approved:\s*\S.{10,}?-->", text)
+            if SIDE_EFFECT.search(text) and not approved and str(fm.get("disable-model-invocation", "")).lower() not in ("true", "yes", "on", "1"):
                 m = SIDE_EFFECT.search(text)
                 add("ERROR", path, f"side effect '{m.group(0)}' without disable-model-invocation: true "
                                    "(or move the command to a manual skill / say 'propose only')")

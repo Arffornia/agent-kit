@@ -4,6 +4,7 @@ description: Finds Arffornia docs that no longer match the code (AGENTS.md, READ
 tools: Read, Glob, Grep, Bash
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
+effort: high
 color: yellow
 ---
 

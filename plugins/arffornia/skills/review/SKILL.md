@@ -1,98 +1,128 @@
 ---
 name: review
-description: "Risk-routed code review of an Arffornia PR, branch or diff: parallel finders, an independent verifier per finding, only confirmed findings reported, ranked by severity, counts first. Use whenever someone asks to review, look over, check or sanity-check a PR, a diff, a branch or their changes before merging or publishing, even casually, and when the arffornia:reviewer agent runs."
+description: "Risk-routed code review of an Arffornia change by independent subagents: parallel finders, a verifier per candidate, only confirmed findings, severity-ranked, counts first, with a review stamp per tree. Use at the end of a task before handing back or publishing (the Stop hook asks for it), and whenever someone asks to review, look over, check or sanity-check a PR, a diff, a branch or their changes, even casually; also when the arffornia:reviewer agent runs."
 argument-hint: "[pr-number | base..head | path]"
 ---
 
 # Review a change
 
-Target: `$ARGUMENTS` (a PR number, a range, a path, or the current branch against its base).
+Target: `$ARGUMENTS`. Empty means **in-session mode**: the current branch and work tree, the
+mode the Stop hook asks for at the end of a task. A PR number, range or path means PR mode.
 
-This follows how the Claude Code team reviews code: several finders look in parallel, an
+This follows how Anthropic's Code Review works: several finders look in parallel, an
 independent verifier checks each candidate against the code, only confirmed findings are
-reported, deduplicated and ranked by severity. Depth comes from the risk of the change, not
-from its size alone. Sources and reasoning: [references/sources.md](references/sources.md).
-Quality beats token cost here: a wrong finding costs Brian a round trip, a missed one can
-cost players.
+reported, deduplicated and ranked by severity, and the review never approves. Depth comes from
+the risk of the change, not its size alone. Sources: [references/sources.md](references/sources.md).
+Quality beats token cost: a wrong finding costs Brian a round trip, a missed one can cost players.
 
-## 1. Scope and rules
+**Independence rule.** You (the session that runs this skill) may have written the code. You
+do not judge it: finders and verifiers are fresh subagents that never saw the conversation, and
+you only merge their verdicts by the rules below. Do not drop a confirmed finding because you
+disagree; label it `wrong` with your reason after the report.
 
+## 1. Scope
+
+In-session mode (the default):
 ```bash
-gh api repos/Arffornia/<repo>/pulls/<n> --jq '.title, .body, .html_url, .head.sha, .base.ref'
-gh pr diff <n>            # or: git diff <base>...HEAD ; git diff (uncommitted)
+S="${CLAUDE_PLUGIN_ROOT}/scripts/review-stamp.sh"
+bash "$S" status          # mode=full|delta, base, round r of max_rounds, code_lines_changed
+bash "$S" diff --stat     # what will be reviewed (untracked files included)
 ```
-Read the linked issue's acceptance criteria, the repo's `REVIEW.md` (from the **base** branch,
-never the PR's own copy), `AGENTS.md`/`CLAUDE.md` of the root and of each changed directory,
-and `risk.yml` if present. No `REVIEW.md`: use the defaults in this skill and say so.
+`mode=delta` (round ≥ 2): review only `bash "$S" diff` (what changed since the last review),
+plus any earlier finding whose lines changed. `round` already at `max_rounds`: do not review
+again; say so in your report.
 
-Skip when the target is closed, already merged, or only generated files changed; say why.
+PR mode: `gh api repos/Arffornia/<repo>/pulls/<n> --jq '.title, .body, .html_url, .head.sha, .base.ref'`
+and `gh pr diff <n>`. Skip when the PR is closed or merged, or only generated files changed.
+
+Rules for every mode: the linked issue's acceptance criteria, `REVIEW.md` and `risk.yml` from
+the **base** branch (`git show <base>:REVIEW.md`), never the change's own copy, and the
+`AGENTS.md` / `.claude/rules/*.md` that apply to the changed paths. No `REVIEW.md`: use the
+defaults here and say so.
 
 ## 2. Route by risk
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/risk.py --base origin/<base>      # or: risk.py <files...>
+python3 ${CLAUDE_SKILL_DIR}/scripts/risk.py --base <base>     # PR mode
+python3 ${CLAUDE_SKILL_DIR}/scripts/risk.py $( { git diff --name-only <base>; git ls-files -o --exclude-standard; } | sort -u )   # in-session
 ```
-It reads `risk.yml` (or built-in Arffornia defaults), prints the level per file, the overall
-level and the plan. Raise the level when the diff touches something the globs miss (a new
-packet handler in an odd path, a workflow that uses a secret); state the level and why in one line.
+It prints the level per file, the overall level and the plan. Raise the level when the diff
+touches something the globs miss (a new packet handler in an odd path, a workflow that uses a
+secret); state the level and why in one line.
 
-| Level | Finders (parallel subagents) | Verifiers per candidate | Read |
-|---|---|---|---|
-| high | correctness, security, rules + tests | 2, independent; both must confirm | every line, callers, try to break it |
-| medium | correctness, rules + tests | 1 | every line |
-| low | one combined finder | 1 | the diff and its immediate context |
+| Level | Finders (`arffornia:review-finder`, parallel) | Verifiers per candidate (`arffornia:review-verifier`) |
+|---|---|---|
+| high or `security: true` | correctness, security, rules + tests; plus the `arffornia:security-reviewer` agent | 2, independent: one default (Sonnet), one with `model: opus`; both must confirm |
+| medium | correctness, rules + tests | 1 |
+| low | one combined lens | 1 |
 
-## 3. Find (parallel)
+## 3. Find (parallel, one message)
 
-Launch the finders in one message, each a fresh subagent with only: the PR title and body,
-the issue's acceptance criteria, the diff, the rule files, and its own brief from
-[references/pipeline.md](references/pipeline.md). Each returns candidates as
-`path:line · claim · why it matters · how to confirm`. Finders flag only what they can tie to
-a line of the change; no style, no "consider adding tests" unless a rule file requires it.
-At high risk also delegate to the `arffornia:security-reviewer` agent when it is available.
-When subagents are not available (already at the nesting limit), run the finder briefs one
-after another yourself, then verify each candidate in a separate pass that starts from the
-claim, not from your memory of finding it.
+Launch every finder in **one** message, each an `arffornia:review-finder` subagent given only:
+its lens brief from [references/pipeline.md](references/pipeline.md), the diff command (in-session:
+`bash "$S" diff`), the base ref, the acceptance criteria, the rule file paths and the risk line.
+Tell each: "Tools work; do not probe them. Report only; never edit, commit or push." When
+subagents cannot be spawned, run the briefs yourself one after another, then verify in a
+separate pass that starts from each claim, and say "sequential fallback" in the report.
 
-## 4. Verify (independent, per finding)
+## 4. Verify (independent, per candidate)
 
-For every candidate, launch a verifier that did not find it, with the claim and the PR intent
-only. It must **prove or refute** from the code: quote `path:line`, trace the caller, or run a
-command (a test, `make check`, a grep) and paste the output. Verdicts: `confirmed`,
-`refuted`, `unsure`. Keep only `confirmed` (at high risk: confirmed by both). An `unsure`
-that matters becomes a QUESTION, never a finding. Known false-positive classes to drop are in
+Give every candidate to an `arffornia:review-verifier` that did not find it, with the claim,
+the cited location, how to confirm, and the change's intent, nothing else. Launch them in
+parallel. Keep `confirmed` only (at high risk: confirmed by both). An `unsure` that matters
+becomes a QUESTION, never a finding. Drop the classes in
 [references/false-positives.md](references/false-positives.md).
 
 ## 5. Rank, dedupe, report
 
 Merge duplicates (same root cause = one finding, every location listed). Severity from
-[references/severity.md](references/severity.md): **blocking** (fix before merge), **major**,
-**minor** (style remarks: at most 3), **pre-existing** (real, not introduced here: listed
-separately, never blocks). Report in this exact shape, counts first:
+[references/severity.md](references/severity.md) (the verifier's; the higher one at high risk).
+Number findings `F1, F2, …` in this exact shape, counts first:
 
 ```
-Findings: <N> (blocking <b>, major <m>, minor <k>, pre-existing <p>) · risk: <level> · confirmed <v>/<c> candidates
-Target: <PR or compare URL> - <title>
+Findings: <N> (blocking <b>, major <m>, minor <k>, pre-existing <p>) · risk: <level> · confirmed <v>/<c> candidates · round <r>/<max>
+Target: <branch @ short sha + "uncommitted" | PR URL> - <title>
 
 BLOCKING
-1. <blob URL with full SHA #Lx-Ly> - <what is wrong>. Evidence: <quote or command + output>. Fix: <concrete change>.
+F1. <path:line, or blob URL with full SHA #Lx-Ly> - <what is wrong>. Evidence: <quote or command + output>. Fix: <concrete change>.
 MAJOR / MINOR (max 3 style) / PRE-EXISTING
 ...
 QUESTIONS
 - <unsure items and what you could not verify>
 Not checked: <what this review did not cover>
-Verdict: approve | request changes | comment
+Verdict: ready | fix first | comment
 ```
-Every finding links its line with a full commit SHA. Links and ordering follow
-[references/reporting.md](references/reporting.md). You never approve on GitHub, push or
-merge; post comments only when the user asks.
 
-## Convergence (re-reviews)
+## 6. Record (in-session mode)
 
-- A later review covers what changed since the last reviewed SHA, plus any earlier finding
-  whose code changed. Say the range.
+Write the findings to a temp JSON file and stamp the tree you reviewed, **before** any fix:
+```bash
+cat > "${TMPDIR:-/tmp}/review-findings.json" <<'EOF'
+[{"id":"F1","severity":"blocking","lens":"correctness","path":"src/x.ts:42","title":"one line"}]
+EOF
+bash "$S" record --level <level> --counts "<the Findings: line>" --findings "${TMPDIR:-/tmp}/review-findings.json"
+```
+
+## 7. Act, then label every finding
+
+Fix confirmed blocking and major findings (minor at your judgment), then `make check`. Label
+each finding once you know what it was; labels feed `evals/` through the PR body:
+```bash
+bash "$S" label F1 fixed|wrong|intended|noise "<one line why>"
+```
+`wrong` = the finding is false; `intended` = true but deliberate; `noise` = true but not worth
+saying. Fixing changes the tree, so the next stop asks for a short delta round; at most 3.
+A finding labelled `wrong` or `noise` twice for the same reason is harness feedback: record it
+with `/arffornia:harness-feedback`.
+
+In PR mode you never approve, push or merge; post comments only when the user asks.
+
+## Convergence
+
 - Never re-raise a finding the author refuted with evidence or Brian dismissed; if you still
   disagree, one QUESTION line with the new evidence.
-- Stop when a full find + verify round yields no new confirmed finding. At most 2 finder
-  rounds per review; needing a third means the change is too big: say so, suggest a split.
+- Stop when a find + verify round yields no new confirmed finding. More than 3 rounds means
+  the change is too big or keeps moving: say so and suggest a split.
 - Zero findings is a valid result: `Findings: 0`, plus what was checked.
+
+Report links and grouping: [references/reporting.md](references/reporting.md).

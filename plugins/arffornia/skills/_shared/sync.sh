@@ -7,13 +7,14 @@
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 SKILLS=$(dirname "$HERE")
-# shared file -> skills that report work and therefore carry it
-declare -A USERS=(
-  [reporting.md]="cadrage challenge debug exec-plan handoff harness-audit i18n-sync mc-gametest mc-machine mc-ui-check modpack-change noodle-arffornia onboard postmortem prio publish release-notes review threat-model upgrade-deps verify work-ticket"
-)
+# shared file -> skills that report work and therefore carry it.
+# One "file: skills..." line per shared file (bash 3.2 on macOS has no associative arrays).
+USERS='reporting.md: cadrage challenge debug exec-plan handoff harness-audit i18n-sync mc-gametest mc-machine mc-ui-check modpack-change noodle-arffornia onboard postmortem prio publish release-notes review threat-model upgrade-deps verify work-ticket harness-feedback learning-card'
 rc=0
-for f in "${!USERS[@]}"; do
-  for s in ${USERS[$f]}; do
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  f="${line%%:*}"
+  for s in ${line#*:}; do
     dst="$SKILLS/$s/references/$f"
     [ -d "$SKILLS/$s" ] || { echo "missing skill $s" >&2; rc=1; continue; }
     if [ "${1:-}" = "--check" ]; then
@@ -22,6 +23,8 @@ for f in "${!USERS[@]}"; do
       mkdir -p "$(dirname "$dst")"; cp "$HERE/$f" "$dst"
     fi
   done
-done
+done <<EOF
+$USERS
+EOF
 [ "${1:-}" = "--check" ] && [ $rc -eq 0 ] && echo "shared references in sync"
 exit $rc

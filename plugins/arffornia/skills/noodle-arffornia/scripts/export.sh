@@ -18,7 +18,8 @@ ICONS=${ICONS:--icons .noodle/icons}
 command -v noodle >/dev/null || { echo "export.sh: noodle not on PATH (TheGostsniperfr/Noodle bin/)" >&2; exit 2; }
 
 if [ $# -gt 0 ]; then VIEWS=("$@"); else
-  mapfile -t VIEWS < <(for f in "$SYSTEM"/views/*.yaml; do basename "$f" .yaml; done)
+  VIEWS=()   # portable loop: macOS bash 3.2 lacks the bash 4 array readers
+  for f in "$SYSTEM"/views/*.yaml; do [ -f "$f" ] && VIEWS+=("$(basename "$f" .yaml)"); done
 fi
 
 for v in "${VIEWS[@]}"; do
@@ -28,13 +29,17 @@ for v in "${VIEWS[@]}"; do
 done
 [ -n "${CHECK_ONLY:-}" ] && { echo "lint ok: ${#VIEWS[@]} view(s)"; exit 0; }
 
-command -v drawio >/dev/null || { echo "export.sh: drawio missing; .drawio files only" >&2; NO_DRAWIO=1; }
+DRAWIO_BIN=drawio
+if ! command -v drawio >/dev/null && [ -x "/Applications/draw.io.app/Contents/MacOS/draw.io" ]; then
+  DRAWIO_BIN="/Applications/draw.io.app/Contents/MacOS/draw.io"   # macOS app (brew install --cask drawio)
+fi
+command -v "$DRAWIO_BIN" >/dev/null || { echo "export.sh: drawio missing; .drawio files only" >&2; NO_DRAWIO=1; }
 XVFB=()
-if [ -z "${DISPLAY:-}" ]; then
+if [ "$(uname -s)" != Darwin ] && [ -z "${DISPLAY:-}" ]; then   # macOS has a window server: no xvfb
   command -v xvfb-run >/dev/null || { echo "export.sh: no DISPLAY and no xvfb-run" >&2; exit 2; }
   XVFB=(xvfb-run -a -s "-screen 0 1920x1080x24")
 fi
-DRAWIO=("${XVFB[@]}" drawio --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader)
+DRAWIO=("${XVFB[@]+"${XVFB[@]}"}" "$DRAWIO_BIN" --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader)
 
 mkdir -p "$OUT"
 for v in "${VIEWS[@]}"; do

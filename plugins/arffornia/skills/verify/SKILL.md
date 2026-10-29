@@ -22,7 +22,7 @@ Include at least one negative check (what must **not** happen).
 | Repo | Harness | Recipe |
 |---|---|---|
 | Arffornia_Website | Playwright in `e2e/` against `php artisan serve` with the E2E seeder | [references/website.md](references/website.md) |
-| Arffornia_Launcher_V.5.2 | Playwright `_electron` on the built `out/`, endpoints mocked, `xvfb-run` | [references/launcher.md](references/launcher.md) |
+| Arffornia_Launcher_V.5.2 | Playwright `_electron` on the built `out/`, endpoints mocked, `xvfb-run` on headless Linux (not needed on macOS) | [references/launcher.md](references/launcher.md) |
 | Arffornia_Mods | `runGameTestServer` (server logic); screens: the UI checks of spec 004/006 | [references/mod.md](references/mod.md) |
 | Proxy, Nexus_*, Provisioning | the repo's tests plus one real run (stub HTTP server, `make indexes`) | [references/other.md](references/other.md) |
 

@@ -32,7 +32,7 @@ fine; if it is a fixed width, shorten the French or fix the layout.
 ## 2. Rendered checks (when a client can run)
 
 Which mode applies, and how: [references/harness.md](references/harness.md).
-- **Harness present** (`./gradlew tasks --all | grep -i clientTest`): run it under `xvfb-run`
+- **Harness present** (`./gradlew tasks --all | grep -i clientTest`): run it under `xvfb-run` on headless Linux (directly on macOS)
   for the changed screens x `en_us`, `fr_fr`, `en_xx` x GUI scale 2, 3, 4; attach the
   contact sheet and `report.json` (no raw keys, no overflow).
 - **No harness yet** (today): with a display, `make run-client`, open each changed screen in

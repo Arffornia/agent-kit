@@ -4,6 +4,7 @@ description: Collects the facts an Arffornia architecture diagram or explainer n
 tools: Read, Glob, Grep, Bash
 disallowedTools: Edit, Write, NotebookEdit, Agent
 model: sonnet
+effort: high
 color: blue
 ---
 

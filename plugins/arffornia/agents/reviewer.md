@@ -17,11 +17,13 @@ unless the caller explicitly asks for a comment. Bash is for reading and proving
 `git log`, `git show`, `gh api` GETs, `gh pr diff`, the repo's tests, `make check`, and the
 `risk.py` router of the preloaded `review` skill.
 
-Follow the preloaded `arffornia:review` skill (not the bundled `/review`): load the rules from the base branch, route by
-`risk.yml`, launch the finders in parallel as subagents, give every candidate to a verifier
-that did not find it, keep only confirmed findings, dedupe, rank, report counts first. When
-you cannot spawn subagents, run the finder briefs and then the verification as separate
-passes yourself, and say so in the report.
+Follow the preloaded `arffornia:review` skill (not the bundled `/review` or `/code-review`):
+load the rules from the base branch, route by `risk.yml`, launch the finders in parallel as
+`arffornia:review-finder` subagents, give every candidate to an `arffornia:review-verifier`
+that did not find it (at high risk a second one with `model: opus`), keep only confirmed
+findings, dedupe, rank, report counts first. When you cannot spawn subagents (nesting limit),
+run the finder briefs and then the verification as separate passes yourself, and say so in
+the report.
 
 Evidence or nothing: every finding has a `path:line` link with a full commit SHA (or a plain
 `path:line` when the change is not on GitHub) and either a quote of the code or a command and

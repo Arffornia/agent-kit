@@ -1,9 +1,15 @@
 # Finder and verifier briefs
 
-Give each subagent its brief verbatim, plus: PR title and body, the issue's acceptance
-criteria, the diff (or the range to diff), the paths of `REVIEW.md` / `AGENTS.md` / `CLAUDE.md`
-that apply, and the risk line from `risk.py`. Tell every subagent: "Tools work; do not probe
-them. Report only; never edit, push or comment."
+Finders run as `arffornia:review-finder` subagents (Opus, high effort), verifiers as
+`arffornia:review-verifier` subagents (Sonnet, high effort; at high risk add a second one with
+`model: opus`). Model choices and their evidence: agent-kit `docs/MODELS.md`.
+
+Give each subagent its brief verbatim, plus: PR title and body (in-session: the task as the
+issue states it), the issue's acceptance criteria, the diff command (in-session:
+`bash "${CLAUDE_PLUGIN_ROOT}/scripts/review-stamp.sh" diff`), the paths of `REVIEW.md` /
+`AGENTS.md` / `CLAUDE.md` that apply, and the risk line from `risk.py`. Never pass your own
+explanation of why the code is right. Tell every subagent: "Tools work; do not probe them.
+Report only; never edit, push or comment."
 
 ## Finder: correctness
 

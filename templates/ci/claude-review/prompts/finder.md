@@ -23,6 +23,7 @@ Look **only** through the lens named in the task. Leave the others to their agen
 | `bugs-crosscut` | Bugs that appear only outside the hunks: callers and implementations of changed functions, data flow across modules, config and migrations that no longer match, other repos' API contracts named in AGENTS.md |
 | `security` | Untrusted input reaching sinks without server-side validation (HTTP, IPC, network payloads, file paths, commands, SQL), authz checks, secrets in code or logs, unsafe defaults, supply chain (new deps, actions not pinned) |
 | `conventions` | Breaks of the repo's written rules: AGENTS.md hard rules, REVIEW.md "always check", GOLDEN_PRINCIPLES.md, `.claude/rules/`, accepted ADRs, i18n (player text in en and fr), English, no library replacement. Cite the rule's file and line |
+| `threat-model` | Only when a `security: true` rule in `risk.yml` matched. Model the changed trust boundary: who controls each input, what it can reach (authz, file system, commands, money, tokens), what happens on malicious, replayed or oversized input, and the supply chain (new deps, actions, scripts). Report concrete exploitable paths with the code that allows them |
 | `tests` | Changed behaviour with no test that fails without the change; tests that cannot fail; missing negative cases on risky paths; flaky constructs (sleep, network, time) |
 | `quick` | Light pass over a low-risk change: only things that are clearly wrong (broken links, wrong commands, a real bug). Max 3 findings |
 

@@ -63,12 +63,78 @@ class Triage(unittest.TestCase):
         self.assertEqual(rp.triage(["build.gradle"], self.cfg(), 10, [])["level"], "standard")
         self.assertEqual(rp.triage(["README.md"], self.cfg(), 900, [])["level"], "standard")
 
+    def test_legacy_escalation_uses_threshold(self):
+        cfg = dict(self.cfg(), escalate={"lines_changed": 50})
+        self.assertEqual(rp.triage(["README.md"], cfg, 51, [])["level"], "standard")
+        self.assertEqual(rp.triage(["README.md"], cfg, 50, [])["level"], "light")
+
     def test_labels_only_raise(self):
         self.assertEqual(rp.triage(["README.md"], self.cfg(), 1, ["ai-review:deep"])["level"], "deep")
 
     def test_aliases_and_top_level_keys(self):
         r = rp.triage(["a/b.php"], {"high": ["a/**"]}, 1, [])
         self.assertEqual(r["level"], "deep")
+
+
+RULES = {
+    "version": 1,
+    "default": "standard",
+    "rules": [
+        {"name": "ci", "depth": "deep", "security": True, "paths": [".github/workflows/**"]},
+        {"name": "network", "depth": "deep", "security": True, "paths": ["**/network/**"]},
+        {"name": "money", "depth": "deep", "paths": ["**/shop/**"]},
+        {"name": "generated", "depth": "light", "paths": ["src/generated/**"]},
+        {"name": "tests", "depth": "standard", "paths": ["src/test/**"]},
+        {"name": "docs", "depth": "light", "paths": ["**/*.md", "docs/**"]},
+    ],
+    "escalate": {"lines_changed": 300},
+}
+
+
+class RulesSchema(unittest.TestCase):
+    def test_first_match_wins(self):
+        # docs/network/x.md hits `network` before `docs`
+        r = rp.triage(["docs/network/x.md"], RULES, 1, [])
+        self.assertEqual(r["level"], "deep")
+        self.assertTrue(r["security"])
+        # src/test/shop/A.java: `money` (deep) is listed before `tests`
+        self.assertEqual(rp.level_for_file("src/test/shop/A.java", rp.risk_rules(RULES)), "deep")
+        # reorder: tests first -> standard
+        reordered = dict(RULES, rules=[RULES["rules"][4]] + RULES["rules"][:4] + RULES["rules"][5:])
+        self.assertEqual(rp.level_for_file("src/test/shop/A.java", rp.risk_rules(reordered)), "standard")
+
+    def test_security_rule_adds_threat_model_and_forces_deep(self):
+        r = rp.triage(["README.md", ".github/workflows/ci.yml"], RULES, 1, [])
+        self.assertEqual(r["level"], "deep")
+        self.assertIn("threat-model", r["lenses"])
+        self.assertIn("security", r["lenses"])
+        self.assertTrue(any("security rules: ci" in x for x in r["reasons"]))
+        # security: true with a lower depth still means deep
+        cfg = {"rules": [{"name": "s", "depth": "light", "security": True, "paths": ["a/**"]}]}
+        self.assertEqual(rp.triage(["a/b"], cfg, 1, [])["level"], "deep")
+
+    def test_non_security_deep_has_no_threat_model(self):
+        r = rp.triage(["src/main/shop/A.java"], RULES, 1, [])
+        self.assertEqual(r["level"], "deep")
+        self.assertNotIn("threat-model", r["lenses"])
+        self.assertFalse(r["security"])
+
+    def test_default_light_and_escalation(self):
+        self.assertEqual(rp.triage(["build.gradle"], RULES, 1, [])["level"], "standard")
+        self.assertEqual(rp.triage(["docs/a.md"], RULES, 1, [])["level"], "light")
+        self.assertEqual(rp.triage(["docs/a.md"], RULES, 301, [])["level"], "standard")
+        self.assertEqual(rp.triage(["build.gradle"], RULES, 301, [])["level"], "deep")
+
+    def test_kit_template_parses(self):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("PyYAML not installed")
+        tpl = Path(__file__).resolve().parents[2] / "risk.yml"
+        if not tpl.is_file():
+            self.skipTest("templates/risk.yml not on this branch")
+        rules = rp.risk_rules(rp.load_risk(str(tpl)))
+        self.assertTrue(rules and all(r["depth"] in rp.LEVELS for r in rules))
 
 
 class Pipeline(unittest.TestCase):

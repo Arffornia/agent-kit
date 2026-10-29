@@ -2,7 +2,8 @@
 # templates/ci/claude-review/ to .github/claude-review/. See templates/ci/README.md.
 #
 # Design (after Anthropic's write-ups on how the Claude Code team reviews code):
-#   triage  -> depth from the change (risk.yml paths + size), never from the author
+#   triage  -> depth from the change (risk.yml rules, first match wins; security rules force deep and add
+#              a threat-model lens; size escalation), never from the author
 #   find    -> several independent finder agents in parallel, one lens each (bugs, security, conventions, ...)
 #   verify  -> independent verifier agents vote on every candidate; only confirmed findings survive
 #   publish -> ONE review, findings ranked by severity, inline where possible; never approves
@@ -92,6 +93,8 @@ jobs:
           mkdir -p .ai-review
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls/$PR/files?per_page=100" > .ai-review/files.json
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews?per_page=100" > .ai-review/reviews.json
+      - name: Install PyYAML (risk.yml parser)
+        run: python3 -c "import yaml" 2>/dev/null || python3 -m pip install --user --quiet "pyyaml==6.0.2"
       - name: Triage (risk level, lenses, verifiers, round)
         id: triage
         env:

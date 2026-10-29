@@ -45,14 +45,15 @@ and past mistakes become evals.
 pull_request ─▶ triage ─▶ find (matrix, one agent per lens) ─▶ verify (matrix, N independent voters) ─▶ publish (no model)
                  │           bugs · security · conventions        each votes confirmed/rejected/unsure     one review, ranked,
                  │           (+ bugs-crosscut · tests when deep)   with its own evidence                    inline where possible
-                 └─ risk.yml (from the BASE branch) + size + labels → light | standard | deep, round n/3
+                 └─ risk.yml rules (BASE branch, first match) + security + size + labels → light | standard | deep, round n/3
 ```
 
 | Level | When | Finders | Verifiers (quorum) |
 |---|---|---|---|
-| light | every changed file is a light path (docs, lang, tests only) | 1 `quick` pass | none; only evidenced blocking/major findings, max 5, marked unverified |
+| light | every changed file matches a `depth: light` rule (docs, generated, lockfiles) | 1 `quick` pass | none; only evidenced blocking/major findings, max 5, marked unverified |
 | standard | default | `bugs`, `security`, `conventions` | 2 (both must confirm) |
-| deep | any deep path, or > `escalate.lines_changed` on standard, or label `ai-review:deep` | + `bugs-crosscut`, `tests` | 3 (2 must confirm) |
+| deep | any `depth: deep` file, or > `escalate.lines_changed` on standard, or label `ai-review:deep` | + `bugs-crosscut`, `tests` | 3 (2 must confirm) |
+| deep + security | any file matching a `security: true` rule | + `threat-model` | 3 (2 must confirm) |
 
 - **Depth comes from the change, not the author.** Labels can only raise it (`ai-review:deep`);
   `ai-review:skip` skips a PR (use for reverts and generated bumps). `risk.yml`, prompts and the
@@ -77,22 +78,39 @@ pull_request ─▶ triage ─▶ find (matrix, one agent per lens) ─▶ verif
 
 ### `risk.yml` (repo root)
 
+The canonical schema is the one in [`templates/risk.yml`](../risk.yml) (core harness): an ordered
+list of rules, **first match wins** (top to bottom), files that match nothing get `default`.
+
 ```yaml
-default: standard            # level for files that match nothing
-levels:                      # globs, gitignore-like (** spans dirs; a pattern without / matches at any depth)
-  deep:                      # always deep: untrusted input, auth, money, release, infra
-    - "src/main/java/**/network/**"
-    - ".github/workflows/**"
-  standard: ["src/**"]
-  light:                     # carve-outs from standard: docs, lang, tests only
-    - "**/*.md"
-    - "docs/**"
+version: 1
+default: standard
 escalate:
-  lines_changed: 400         # more changed lines raises the level by one
+  lines_changed: 400          # optional: more changed lines raises the PR one level (default 400)
+rules:
+  - name: network-boundary
+    depth: deep               # light | standard | deep
+    security: true            # forces deep and adds the `threat-model` finder lens
+    paths: ["**/network/**", "src/preload/**"]
+  - name: tests
+    depth: standard
+    paths: ["src/test/**"]
+  - name: docs
+    depth: light
+    paths: ["**/*.md", "docs/**"]
 ```
 
-Per file: deep wins, then light, then standard, then `default`. The PR takes its highest file
-level. Aliases `high`/`medium`/`low` and top-level `deep:` keys are accepted.
+- Globs are gitignore-like: `**` spans directories, `{a,b}` alternates, a pattern without `/`
+  (e.g. `*Auth*`) matches at any depth.
+- Put narrow, risky rules first: a file stops at its first matching rule.
+- The PR's level is the highest level among its files, then `security` and `escalate` apply, then
+  the `ai-review:deep` label (labels can only raise it).
+- Legacy shape (still accepted, from the first draft of this pipeline): `levels: {deep: [...],
+  standard: [...], light: [...]}` (or those keys at the top level, aliases `high`/`medium`/`low`);
+  it is read as rules in the order deep, light, standard. `escalate` works the same in both.
+- The triage job installs PyYAML. A `risk.yml` that cannot be parsed falls back to `default:
+  standard`, and the review body says so; it is never ignored silently.
+- `python3 -m unittest .github/claude-review/test_review_pipeline.py` also parses the repo's
+  `risk.yml` (the file two levels up from the tests), so CI can catch a broken rules file.
 
 ### Adopt
 
@@ -101,7 +119,7 @@ KIT=../agent-kit/templates/ci
 mkdir -p .github/workflows .github/claude-review
 cp $KIT/claude-review.yml $KIT/claude-mention.yml .github/workflows/
 cp -r $KIT/claude-review/. .github/claude-review/
-python3 -m unittest .github/claude-review/test_review_pipeline.py   # 13 tests, stdlib only
+python3 -m unittest .github/claude-review/test_review_pipeline.py   # 19 tests, stdlib (+ PyYAML for rules:)
 ```
 Add `risk.yml` and `REVIEW.md`; add the secret and the GitHub App. The first PR (the one adding
 the workflow) reviews itself with the head copy of the pipeline; later PRs use the base copy.

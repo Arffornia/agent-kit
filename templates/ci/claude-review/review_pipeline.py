@@ -133,6 +133,9 @@ def load_risk(path: str) -> dict:
 
         data = yaml.safe_load(text) or {}
     except ImportError:
+        # The fallback parser understands only the legacy `levels:` shape; the workflow installs PyYAML.
+        if re.search(r"^rules\s*:", text, re.M):
+            raise SystemExit("risk.yml uses `rules:`; install PyYAML (pip install pyyaml) to parse it")
         data = _mini_yaml(text)
     return data if isinstance(data, dict) else {}
 
@@ -143,10 +146,31 @@ def _norm_level(name) -> str | None:
     return n if n in LEVELS else None
 
 
-def risk_rules(cfg: dict) -> dict[str, list[str]]:
-    """Accepts `levels: {deep: [...]}` or top-level `deep: [...]`; entries may be `{paths: [...]}`."""
+def risk_rules(cfg: dict) -> list[dict]:
+    """Normalise risk.yml into an ordered rule list; the first matching rule wins.
+
+    Canonical (agent-kit templates/risk.yml, version 1):
+        rules: [{name, depth: light|standard|deep, security: bool, paths: [...]}]
+    Legacy (accepted): `levels: {deep: [...], standard: [...], light: [...]}` or the same keys at the
+    top level, aliases high/medium/low; converted to rules in the order deep, light, standard
+    (deep always wins, light carves out of standard).
+    """
+    if isinstance(cfg.get("rules"), list):
+        out = []
+        for i, r in enumerate(cfg["rules"]):
+            if not isinstance(r, dict):
+                continue
+            raw_depth = str(r.get("depth", "standard")).strip().lower()
+            security = bool(r.get("security")) or raw_depth == "security"
+            depth = "deep" if security else (_norm_level(raw_depth) or "standard")
+            paths = r.get("paths") or r.get("globs") or []
+            if isinstance(paths, str):
+                paths = [paths]
+            out.append({"name": str(r.get("name") or f"rule-{i + 1}"), "depth": depth, "security": security,
+                        "paths": [str(p) for p in paths]})
+        return out
     src = cfg.get("levels") if isinstance(cfg.get("levels"), dict) else cfg
-    rules: dict[str, list[str]] = {}
+    legacy: dict[str, list[str]] = {}
     for key, val in (src or {}).items():
         lvl = _norm_level(key)
         if not lvl:
@@ -155,26 +179,35 @@ def risk_rules(cfg: dict) -> dict[str, list[str]]:
             val = val.get("paths") or val.get("globs") or []
         if isinstance(val, str):
             val = [val]
-        rules.setdefault(lvl, []).extend(str(v) for v in val or [])
-    return rules
+        legacy.setdefault(lvl, []).extend(str(v) for v in val or [])
+    return [{"name": lvl, "depth": lvl, "security": False, "paths": legacy[lvl]}
+            for lvl in ("deep", "light", "standard") if lvl in legacy]
 
 
-def level_for_file(path: str, rules: dict[str, list[str]]) -> str | None:
-    # deep always wins (safety); light paths are carve-outs from standard; then standard.
-    for lvl in ("deep", "light", "standard"):
-        for g in rules.get(lvl, []):
+def rule_for_file(path: str, rules: list[dict]) -> dict | None:
+    for r in rules:
+        for g in r["paths"]:
             if glob_to_regex(g).match(path):
-                return lvl
+                return r
     return None
+
+
+def level_for_file(path: str, rules: list[dict]) -> str | None:
+    r = rule_for_file(path, rules)
+    return r["depth"] if r else None
 
 
 def triage(files: list[str], cfg: dict, lines_changed: int, labels: list[str]) -> dict:
     rules = risk_rules(cfg)
     default = _norm_level(cfg.get("default", "standard")) or "standard"
     reasons: list[str] = []
-    per_file = {}
+    per_file: dict[str, str] = {}
+    security_rules: list[str] = []
     for f in files:
-        per_file[f] = level_for_file(f, rules) or default
+        r = rule_for_file(f, rules)
+        per_file[f] = r["depth"] if r else default
+        if r and r["security"] and r["name"] not in security_rules:
+            security_rules.append(r["name"])
     level = "light"
     for f, lvl in per_file.items():
         if LEVELS.index(lvl) > LEVELS.index(level):
@@ -183,6 +216,9 @@ def triage(files: list[str], cfg: dict, lines_changed: int, labels: list[str]) -
         level = default
     top = [f for f, l in per_file.items() if l == level][:5]
     reasons.append(f"paths: {level} ({', '.join(top) or 'no files'})")
+    if security_rules:
+        level = "deep"
+        reasons.append(f"security rules: {', '.join(security_rules)} (deep + threat-model lens)")
     esc = cfg.get("escalate") if isinstance(cfg.get("escalate"), dict) else {}
     threshold = int(esc.get("lines_changed", 400) or 400)
     if lines_changed > threshold and level != "deep":
@@ -192,9 +228,13 @@ def triage(files: list[str], cfg: dict, lines_changed: int, labels: list[str]) -
     if "ai-review:deep" in labels and level != "deep":
         level = "deep"
         reasons.append("label ai-review:deep")
+    lenses = list(LENSES[level])
+    if security_rules:
+        lenses.append("threat-model")
     return {
         "level": level,
-        "lenses": LENSES[level],
+        "lenses": lenses,
+        "security": bool(security_rules),
         "verifiers": list(range(1, VERIFIERS[level] + 1)),
         "quorum": QUORUM[level],
         "reasons": reasons,
@@ -476,7 +516,16 @@ def main(argv=None) -> int:
         files = [f["filename"] for f in files_json]
         changed = sum(int(f.get("additions", 0)) + int(f.get("deletions", 0)) for f in files_json)
         labels = [l.strip() for l in a.labels.split(",") if l.strip()]
-        res = triage(files, load_risk(a.risk), changed, labels)
+        risk_error = ""
+        try:
+            cfg = load_risk(a.risk)
+        except (SystemExit, Exception) as exc:  # unreadable risk.yml is reported, never silently ignored
+            cfg, risk_error = {}, f"risk.yml unreadable ({exc}); used default standard"
+        res = triage(files, cfg, changed, labels)
+        if risk_error:
+            res["reasons"].insert(0, risk_error)
+        elif not Path(a.risk).is_file():
+            res["reasons"].insert(0, "no risk.yml on the base branch; used default standard")
         rounds, seen = count_rounds(reviews, a.sha)
         run = "true"
         why = ""

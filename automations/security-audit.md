@@ -1,6 +1,6 @@
 # security-audit
 
-Disallowed tools: Bash(gh issue *) Bash(gh pr *) Bash(gh gist *) Bash(gh release *) Bash(gh repo *) Bash(git push *) Bash(gh api -X POST *) Bash(gh api -X PATCH *) Bash(gh api -X PUT *) Bash(gh api -X DELETE *) Bash(gh api --method *)
+Disallowed tools: Bash(gh issue *) Bash(gh pr *) Bash(gh gist *) Bash(gh release *) Bash(gh repo *) Bash(git push *) Bash(gh api -X POST *) Bash(gh api -X PATCH *) Bash(gh api -X PUT *) Bash(gh api -X DELETE *) Bash(gh api --method *) Bash(gh api -XPOST*) Bash(gh api -XPATCH*) Bash(gh api -XPUT*) Bash(gh api -XDELETE*) Bash(gh api * -X *) Bash(gh api * -f *) Bash(gh api * -F *) Bash(gh api * --field *) Bash(gh api * --raw-field *) Bash(gh api * --input *) Bash(gh api graphql*)
 
 Schedule: monthly, 2nd, 06:25 Europe/Paris. Model: Opus (see agent-kit docs/MODELS.md). Normal run: ~60 min / 150 turns. Hard cap: 4 h / 600 turns.
 
@@ -32,7 +32,10 @@ previous private report (scheduled-task history). None: audit everything once.
 ## Guardrails
 - Read-only on every repo. No PRs, no commits, no issue comments, no advisories created automatically.
 - **No writes at all** (Rule of Two: this agent reads private findings and untrusted code, so it
-  gets no output channel). GitHub write commands are disallowed (`Disallowed tools:` above, passed
+  gets no output channel). Read GitHub with plain `gh api <path>` GETs only (no `-f`/`-F`, which
+  turn a call into a POST). The pattern list is a backstop, not a proof: run it where its GitHub
+  access is read-only if you can (a cloud task with no connectors; locally, a `GH_TOKEN` from a
+  read-only fine-grained token). GitHub write commands are disallowed (`Disallowed tools:` above, passed
   by `run-local.sh`; in a cloud task, keep no connectors and network **Trusted**).
 - **Disclosure**: exploitable and unfixed → private report only. Hygiene items with no exploit path
   (e.g. "pin actions by major") are written in the report as **draft** public issues (neutral title,

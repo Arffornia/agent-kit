@@ -9,7 +9,7 @@
 #
 # Model and turn cap come from the prompt file ("Model: Opus", "Hard cap: ... / 400 turns").
 # A "Disallowed tools:" line in the prompt is passed to --disallowedTools (e.g. security-audit
-# forbids every GitHub write). The run is stopped at the prompt's hard cap in hours (default 3 h).
+# forbids GitHub writes). The run is stopped at the prompt's hard cap ("2 h", "40 min"; default 3 h).
 # Env: ARFFORNIA_PERMISSION_MODE (default auto), ARFFORNIA_AUTOMATION_STATE (logs, lock),
 #      CLAUDE_BIN (default claude). Portable: macOS bash 3.2 + BSD tools, Linux.
 set -euo pipefail
@@ -28,8 +28,10 @@ model="$(sed -nE 's/.*Model: (Opus|Sonnet|Haiku|Fable).*/\1/p' "$prompt" | head 
 [ -n "$model" ] || model=opus
 turns="$(sed -nE 's/.*Hard cap: [^/]*\/ *([0-9]+) turns.*/\1/p' "$prompt" | head -n 1)"
 [ -n "$turns" ] || turns=200
-hours="$(sed -nE 's/.*Hard cap: *([0-9]+) *h.*/\1/p' "$prompt" | head -n 1)"
-[ -n "$hours" ] || hours=3
+# Hard cap: "2 h", "40 min" (the first number + unit after "Hard cap:"); default 3 h.
+cap_n="$(sed -nE 's/.*Hard cap: *([0-9]+) *(h|min).*/\1/p' "$prompt" | head -n 1)"
+cap_u="$(sed -nE 's/.*Hard cap: *([0-9]+) *(h|min).*/\2/p' "$prompt" | head -n 1)"
+case "$cap_u" in h) cap_s=$(( cap_n * 3600 )) ;; min) cap_s=$(( cap_n * 60 )) ;; *) cap_s=10800 ;; esac
 disallowed="$(sed -nE 's/^Disallowed tools: *//p' "$prompt" | head -n 1)"
 
 state="${ARFFORNIA_AUTOMATION_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/arffornia-automations}"
@@ -47,7 +49,7 @@ printf '%s\n' "$$" > "$lock/pid"
 wt=""; watchdog=""
 cleanup() {
   if [ -n "$wt" ] && [ -d "$wt" ]; then git -C "$repo" worktree remove --force "$wt" >/dev/null 2>&1 || true; fi
-  [ -n "${watchdog:-}" ] && kill "$watchdog" 2>/dev/null
+  if [ -n "${watchdog:-}" ]; then kill "$watchdog" 2>/dev/null || true; fi
   rm -rf "$lock" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -66,7 +68,7 @@ wt="$state/wt-$agent-$stamp"
 git -C "$repo" worktree add -q --detach "$wt" "$def" || die "cannot create a worktree from $def"
 
 log="$state/$agent-$stamp.log"
-printf 'run-local: %s · model %s · max %s turns · %s @ %s · log %s\n' "$agent" "$model" "$turns" "$repo" "$def" "$log" >&2
+printf 'run-local: %s · model %s · max %s turns / %s s · %s @ %s · log %s\n' "$agent" "$model" "$turns" "$cap_s" "$repo" "$def" "$log" >&2
 set -- -p "$(cat "$prompt")" --model "$model" --max-turns "$turns" \
   --permission-mode "${ARFFORNIA_PERMISSION_MODE:-auto}" --output-format text
 [ -n "$disallowed" ] && set -- "$@" --disallowedTools "$disallowed"
@@ -75,7 +77,7 @@ rc=0
 (cd "$wt" && CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 exec "$claude_bin" "$@") >"$log" 2>&1 &
 pid=$!
 # Watchdog with its own stdio, so it never holds the caller's stdout (cron mail, pipes) open.
-( sleep $(( hours * 3600 )); kill "$pid" 2>/dev/null && printf 'run-local: hard cap of %s h reached, run stopped\n' "$hours" >>"$log" ) </dev/null >/dev/null 2>&1 &
+( sleep "$cap_s"; kill "$pid" 2>/dev/null && printf 'run-local: hard cap of %s s reached, run stopped\n' "$cap_s" >>"$log" ) </dev/null >/dev/null 2>&1 &
 watchdog=$!
 wait "$pid" || rc=$?
 tail -n 20 "$log"

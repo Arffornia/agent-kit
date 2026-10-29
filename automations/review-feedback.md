@@ -22,7 +22,7 @@ or `noise`, and `/arffornia:publish` writes a block into the PR body that ends w
 - agent-kit `evals/` (format in `evals/README.md`).
 
 ## Process
-1. Collect findings: repo, PR link, id, severity, lens, label (`unlabelled` when missing), rounds, risk level.
+1. Collect findings keyed by `(round, id)` (every round numbers from F1): repo, PR link, round, id, severity, lens, label (`unlabelled` when missing), rounds, risk level.
 2. Metrics for the week and the trailing 4 weeks: useful rate = fixed / labelled; wrong rate; noise
    rate; per lens and per severity; unlabelled share; rounds per PR; PRs without a review block.
 3. Eval cases: each `wrong` or `noise` finding → a case expecting "not reported" (input = the PR diff
@@ -54,7 +54,7 @@ Rounds per PR p50 <r> · code PRs merged without a review block: <k>
 New eval cases: <k> (wrong/noise <i>, missed-bug <j>, found-bug <l>)
 Prompt or model changes proposed: <lens>: <one line>
 Findings
-- https://github.com/Arffornia/<repo>/pull/<n> — F<id> <title> · <sev> · <lens> · <label>
+- https://github.com/Arffornia/<repo>/pull/<n> — R<round>.F<id> <title> · <sev> · <lens> · <label>
 Could not read: <list or none>
 <!-- bookmark:review-feedback {"since":"..."} -->
 agent:review-feedback run:<date> turns:<n> duration:<m>

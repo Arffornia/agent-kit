@@ -94,7 +94,7 @@ the folder (a checkout of the repo, or a parent with all of them), the model and
 Permissions are set per task: start with "ask", switch to auto-approve after two good runs.
 
 ### Local `claude -p` from a scheduler
-[`run-local.sh`](run-local.sh) runs one prompt headless in a fresh worktree of a local clone,
+[`run-local.sh`](run-local.sh) (tests: `bash automations/tests/run-local.test.sh`) runs one prompt headless in a fresh worktree of a local clone,
 with the model from the prompt file, a turn cap, and the transcript saved under
 `~/.local/state/arffornia-automations/`:
 

@@ -37,3 +37,7 @@ rules:
   - name: docs
     depth: light
     paths: ["**/*.md", "docs/**", "mkdocs.yml", "architecture/**", "LICENSE*", ".editorconfig"]
+
+# Optional: a PR with more changed lines than this is raised one level (default 400).
+escalate:
+  lines_changed: 400

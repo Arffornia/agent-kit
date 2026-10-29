@@ -1,0 +1,13 @@
+// --- agent-kit architecture guards (ArchUnit) -------------------------------------------
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'com.tngtech.archunit:archunit:1.5.1'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    // Forward -Darchunit.* (e.g. allowStoreCreation, refreeze) from the Gradle command line to the tests.
+    systemProperties System.properties.findAll { it.key.toString().startsWith('archunit.') }
+}

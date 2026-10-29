@@ -1,0 +1,22 @@
+// Applies PIT (gradle-pitest-plugin) without editing build.gradle. Used by mutation-nightly-gradle.yml:
+//   PIT_TARGET_CLASSES='com.example.critical.*' ./gradlew --init-script .github/pitest.init.gradle pitest
+initscript {
+    repositories { gradlePluginPortal() }
+    dependencies { classpath 'info.solidsoft.gradle.pitest:gradle-pitest-plugin:1.19.0' }
+}
+
+allprojects {
+    plugins.withId('java') {
+        apply plugin: info.solidsoft.gradle.pitest.PitestPlugin
+        pitest {
+            junit5PluginVersion = '1.2.3'
+            targetClasses = (System.getenv('PIT_TARGET_CLASSES') ?: "${project.group}.*").split(',').collect { it.trim() }
+            threads = Math.max(1, Runtime.runtime.availableProcessors() - 1)
+            outputFormats = ['HTML', 'XML']
+            timestampedReports = false
+            mutationThreshold = 0          // report only
+            failWhenNoMutations = false
+            jvmArgs = ['-Xmx1g']
+        }
+    }
+}

@@ -9,10 +9,9 @@
 # line) ends with the comment `# portable-ok`. A file meant for Linux only (cloud/setup.sh runs in
 # the Ubuntu cloud VM) carries `# portability: linux-only` in its first 10 lines.
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || exit 1
-
 if [ $# -gt 0 ]; then files="$(printf '%s\n' "$@")"
 else
+  cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || exit 1
   files="$(git ls-files | while IFS= read -r f; do
     case "$f" in
       (*.sh|*/Makefile|Makefile|*.mk|templates/scripts/init) printf '%s\n' "$f" ;;

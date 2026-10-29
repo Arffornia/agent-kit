@@ -112,16 +112,17 @@ with a 3-minute download.
    paste its content).
 2. Keep network access on **Trusted** or add the hosts it needs (GitHub, Maven Central,
    `maven.neoforged.net`, `services.gradle.org`, Packagist, npm, `get.helm.sh`).
-3. Optional: edit the settings block at the top (`WARM`, `TOOLS`, `PHP_EXTRA="8.4"`,
+3. Optional: edit the settings block at the top (`WARM`, `TOOLS`, `PHP_VERSION="8.5"`, `PHP_EXTRA`,
    `BUDGET`). Environment variables are not set while the script runs, so set values there.
 4. Save. The first session runs the script (log: `/var/log/arffornia-setup.log`); later ones
    start from the snapshot. The cache is rebuilt when you change the script or after ~7 days.
 
 The script is idempotent, runs its jobs in parallel under a 270 s budget, never fails the
 session (it always exits 0), and warms caches from shallow clones in `/opt/arffornia/warm`, so
-it is independent of which repo the session opens. Note: `Arffornia_Website`'s current
-`composer.lock` needs PHP 8.4 while the VM ships 8.3; set `PHP_EXTRA="8.4"` until
-[Arffornia_Website#52](https://github.com/Arffornia/Arffornia_Website/issues/52) settles the runtime.
+it is independent of which repo the session opens. PHP: the website moves to Laravel 13 on
+PHP 8.5 ([Arffornia_Website#103](https://github.com/Arffornia/Arffornia_Website/pull/103)), so
+the script installs PHP `PHP_VERSION="8.5"` from the ondrej PPA and selects it (the VM ships an
+older PHP); set `PHP_VERSION=""` to keep the VM's PHP, `PHP_EXTRA` to add a second one.
 
 ## Codex and other agents
 

@@ -27,13 +27,13 @@
         full = pkgs.mkShell {
           packages = kitTools pkgs ++ (with pkgs; [
             temurin-bin-21                 # Arffornia_Mods (NeoForge 1.21.1), Arffornia_Proxy (Velocity)
-            php84 php84Packages.composer   # Arffornia_Website (composer.lock needs PHP >= 8.4.1)
+            php85 php85Packages.composer   # Arffornia_Website (Laravel 13, composer.json "php": "^8.5")
             kustomize kubernetes-helm      # infra
             gitleaks pre-commit
           ]);
           shellHook = ''
             export GRADLE_OPTS="''${GRADLE_OPTS:--Dorg.gradle.jvmargs=-Xmx2g}"
-            echo "Arffornia full shell ($(uname -s)/$(uname -m)): java, php 8.4, composer, node 22, helm, kustomize"
+            echo "Arffornia full shell ($(uname -s)/$(uname -m)): java, php 8.5, composer, node 22, helm, kustomize"
           '';
         };
       });

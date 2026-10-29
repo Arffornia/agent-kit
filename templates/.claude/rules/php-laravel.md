@@ -9,10 +9,12 @@ paths:
   - "lang/**"
 ---
 
-# Laravel 12 / PHP 8.3 conventions (Arffornia_Website)
+# Laravel 13 / PHP 8.5 conventions (Arffornia_Website)
 
-- **Layering**: Controller → Service → Repository → Eloquent. Controllers stay thin: no
-  `DB::`/model queries in controllers (StagesController is the known exception being split).
+- **Layering**: Controller → Service → Repository → Eloquent. Controllers stay thin: route-model
+  binding and passing model instances along are fine (idiomatic Laravel), but no queries in
+  controllers (`Model::where`, `DB::`, query builders): those go in a service or repository.
+  `deptrac.yaml` enforces it (StagesController is the known exception being split).
 - **Validation in FormRequests**, not inline `Validator::make`. Every `$request->input()` that
   reaches a query, a command string or a file path is validated first (types, `exists:`, max sizes).
 - **Responses through API Resources**. Never return a raw model: it leaks columns

@@ -43,7 +43,8 @@ missing). Notes for Apple Silicon:
   client (`runClient`) downloads arm64 LWJGL natives on 1.21.1.
 - The launcher: `npm ci` fetches arm64 Electron; electron-builder makes `arm64` DMGs by default
   (`--x64` for Intel builds).
-- PHP: Homebrew's `php` is the current release (8.4+), which the website's `composer.lock` needs.
+- PHP: Homebrew's `php` is the current release (8.5), which the website requires (Laravel 13,
+  `"php": "^8.5"`). If you need another version side by side: `brew install php@8.4` and `brew link`.
 - The sandbox uses macOS Seatbelt, built in: nothing to install. Git over SSH does not work
   inside it; use HTTPS remotes (`gh auth setup-git`).
 
@@ -54,7 +55,7 @@ agent-kit has a `flake.nix` with two dev shells for `x86_64-linux`, `aarch64-lin
 
 ```bash
 nix develop github:Arffornia/agent-kit          # kit tools: bash 5, git, jq, gh, shellcheck, actionlint, python3 + PyYAML, node 22
-nix develop github:Arffornia/agent-kit#full     # + JDK 21 (Temurin), PHP 8.4 + Composer, kustomize, helm, gitleaks, pre-commit
+nix develop github:Arffornia/agent-kit#full     # + JDK 21 (Temurin), PHP 8.5 + Composer, kustomize, helm, gitleaks, pre-commit
 ```
 
 Product repos do not need their own flake: run `nix develop github:Arffornia/agent-kit#full`

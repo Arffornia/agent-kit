@@ -29,7 +29,13 @@ pm() { # <brew formula> <apt package> <nix attr>: the install hint for this OS
 need() { have "$1" || die "$1 is required. $2"; }
 need git  "$(pm git git git)"
 need make "$(pm make make gnumake) On macOS, xcode-select --install also provides it."
-[ -f composer.json ] && need php "Install PHP 8.3+. $(pm php php-cli php83)" && need composer "$(pm composer composer php83Packages.composer)"
+if [ -f composer.json ]; then
+  need php "Install PHP. $(pm php php-cli php85)"
+  need composer "$(pm composer composer php85Packages.composer)"
+  # The PHP constraint comes from composer.json ("php": "^8.5" on the website); composer explains a mismatch.
+  composer check-platform-reqs --no-dev --lock >/dev/null 2>&1 || \
+    warn "your PHP ($(php -r 'echo PHP_VERSION;' 2>/dev/null)) does not meet this repo's platform requirements; run \`composer check-platform-reqs\`. $(pm php php-cli php85)"
+fi
 [ -f package.json ]  && need node "Install Node 22 LTS. $(pm node@22 nodejs nodejs_22)" && need npm "npm ships with Node."
 if [ -f gradlew ]; then
   need java "Install a JDK 21. $(pm "--cask temurin@21" openjdk-21-jdk temurin-bin-21)"

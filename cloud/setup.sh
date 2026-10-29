@@ -6,7 +6,8 @@
 # snapshotted and reused, so later sessions start with every toolchain and cache already warm.
 #
 # What it does (all optional, all idempotent, never fails the session):
-#   - checks the pre-installed JDK 21, PHP 8.3 + Composer, Node 22 (adds what is missing)
+#   - checks the pre-installed JDK 21, PHP + Composer, Node 22 (adds what is missing); installs
+#     and selects PHP $PHP_VERSION (default 8.5, what Arffornia_Website's composer.json requires)
 #   - apt: shellcheck, yamllint, bubblewrap + socat (Claude Code sandbox on Linux)
 #   - helm + kustomize (pinned versions), noodle (from source, needs Go), mkdocs (docs)
 #   - warms the Gradle cache (Arffornia_Mods, Arffornia_Proxy), the Composer cache
@@ -17,7 +18,8 @@
 # ----- settings (edit here) --------------------------------------------------------------
 WARM="${WARM:-mod proxy website launcher libs provisioning docs}"   # caches to warm
 TOOLS="${TOOLS:-apt helm kustomize mkdocs noodle}"                # extra tools (add: drawio)
-PHP_EXTRA="${PHP_EXTRA:-}"            # e.g. "8.4" to also install that PHP (ondrej PPA)
+PHP_VERSION="${PHP_VERSION:-8.5}"     # website PHP (Laravel 13, composer.json "php": "^8.5"); "" = keep the VM's PHP
+PHP_EXTRA="${PHP_EXTRA:-}"            # optional second PHP to install alongside, e.g. "8.4" (not selected)
 HELM_VERSION="${HELM_VERSION:-v3.19.0}"
 KUSTOMIZE_VERSION="${KUSTOMIZE_VERSION:-v5.7.1}"
 BUDGET="${BUDGET:-270}"               # seconds; stay under ~5 min so the snapshot is cached
@@ -59,11 +61,13 @@ job_apt() {
     dpkg -s "$p" >/dev/null 2>&1 || pkgs="$pkgs $p"
   done
   have java     || pkgs="$pkgs openjdk-21-jdk-headless"
-  have php      || pkgs="$pkgs php8.3-cli php8.3-xml php8.3-mbstring php8.3-curl php8.3-sqlite3 php8.3-pgsql php8.3-zip"
-  if [ -n "$PHP_EXTRA" ] && ! have "php$PHP_EXTRA"; then
-    bounded 60 add-apt-repository -y ppa:ondrej/php >/dev/null 2>&1 || log "PPA for PHP $PHP_EXTRA unavailable"
-    pkgs="$pkgs php$PHP_EXTRA-cli php$PHP_EXTRA-xml php$PHP_EXTRA-mbstring php$PHP_EXTRA-curl php$PHP_EXTRA-sqlite3 php$PHP_EXTRA-pgsql php$PHP_EXTRA-zip"
-  fi
+  local v ppa=0
+  for v in $PHP_VERSION $PHP_EXTRA; do
+    have "php$v" && continue
+    [ "$ppa" = 1 ] || { bounded 60 add-apt-repository -y ppa:ondrej/php >/dev/null 2>&1 || log "PPA ondrej/php unavailable (PHP $v)"; ppa=1; }
+    pkgs="$pkgs php$v-cli php$v-xml php$v-mbstring php$v-curl php$v-sqlite3 php$v-pgsql php$v-zip php$v-intl php$v-bcmath"
+  done
+  [ -z "$PHP_VERSION" ] && ! have php && pkgs="$pkgs php-cli php-xml php-mbstring php-curl php-sqlite3 php-pgsql php-zip"
   if want drawio "$TOOLS"; then pkgs="$pkgs xvfb libgbm1 libasound2t64"; fi
   [ -n "$pkgs" ] || { log "apt: nothing to install"; return 0; }
   log "apt install:$pkgs"
@@ -71,6 +75,10 @@ job_apt() {
   bounded 60 apt-get update -qq || true
   # shellcheck disable=SC2086
   bounded 150 apt-get install -y -qq --no-install-recommends $pkgs >/dev/null || log "apt: some packages failed"
+  if [ -n "$PHP_VERSION" ] && [ -x "/usr/bin/php$PHP_VERSION" ]; then
+    update-alternatives --set php "/usr/bin/php$PHP_VERSION" >/dev/null 2>&1 || log "could not select PHP $PHP_VERSION"
+    log "php: $(php -r 'echo PHP_VERSION;' 2>/dev/null || echo '?') selected"
+  fi
   have composer || { bounded 60 bash -c "curl -fsSL https://getcomposer.org/installer | php -- --install-dir='$BIN_DIR' --filename=composer" || true; }
 }
 

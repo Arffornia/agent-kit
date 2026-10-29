@@ -21,6 +21,8 @@ if [ $# -gt 0 ]; then VIEWS=("$@"); else
   VIEWS=()   # portable loop: macOS bash 3.2 lacks the bash 4 array readers
   for f in "$SYSTEM"/views/*.yaml; do [ -f "$f" ] && VIEWS+=("$(basename "$f" .yaml)"); done
 fi
+# bash < 4.4 treats "${VIEWS[@]}" of an empty array as unbound under set -u
+[ "${#VIEWS[@]}" -gt 0 ] || { echo "export.sh: no views in $SYSTEM/views"; exit 0; }
 
 for v in "${VIEWS[@]}"; do
   echo "noodle: $v"

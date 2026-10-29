@@ -1,0 +1,12 @@
+{
+  "id": "launch-without-await",
+  "source": "Audit launcher.md §7 bug 3 / Arffornia_Launcher_V.5.2 issue #40: launchMSAuth is async, so the null check never fires and a failed login still downloads the modpack, then crashes in MCLC. Fixture: base has the await, head drops it.",
+  "repo": "Arffornia/Arffornia_Launcher_V.5.2 (excerpt)",
+  "pr_title": "refactor(launcher): simplify the launch flow",
+  "pr_body": "Small cleanup of launchMC: no behaviour change intended.\n\nThis fixture is an excerpt of the launcher: imports that are not present exist in the full repo.",
+  "expect": {
+    "min_blocking": 1,
+    "must_match": ["await", "(Promise|async)", "(null|never|always)"],
+    "must_not_match": []
+  }
+}

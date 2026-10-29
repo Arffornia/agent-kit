@@ -77,7 +77,7 @@ except PROGRESS.md).
 | `Stop` | `stop.sh` | 1. **Check gate**: if the branch has changes, `make check` must pass (cached per tree). 2. **Review gate**: if this session changed the work tree (vs the tree SessionStart recorded), the branch changes ≥ 10 lines of code, and the current tree has no review stamp, block once with "run the arffornia:review skill" (see below). 3. Once per change set: docs reminder and PROGRESS.md reminder | `make check` time, ~50 ms for the review gate |
 | `PreCompact`, `SessionEnd` | `handoff.sh` | Appends an automatic entry to PROGRESS.md: date, branch, commits ahead, uncommitted files, TODO/FIXME lines added on the branch. Skips duplicates, keeps the last 5, never commits | < 0.1 s |
 
-`plugins/arffornia/scripts/tests/run.sh` exercises every script in a throwaway repo (112 cases),
+`plugins/arffornia/scripts/tests/run.sh` exercises every script in a throwaway repo (119 cases),
 and `tests/portability.sh` rejects bash 4 and GNU-only constructs. The kit's CI runs both on
 Linux x86_64, Linux arm64 and macOS arm64 with the system `/bin/bash` 3.2.
 
@@ -118,8 +118,9 @@ Design choices, and why:
   of the work tree (`git write-tree` on a temp index, untracked files included) and compares
   it with the stamp. It only asks when **this session changed the tree** (SessionStart records
   the tree it found), so a session that only reads or answers questions on a branch with
-  unreviewed code is never sent on a review; the first dogfood run caught that case. It blocks
-  **once per tree state**, never loops (Claude Code also caps a Stop
+  unreviewed code is never sent on a review; the first dogfood run caught that case. Changes
+  that touch only docs, lockfiles or generated files (a PROGRESS.md handoff, say) neither
+  trigger a review nor invalidate a stamp. It blocks **once per tree state**, never loops (Claude Code also caps a Stop
   hook at 8 consecutive blocks), skips docs, lockfiles and generated files, and caps the rounds
   at 3 per branch. Only the model work costs tokens, and only when there is code to review.
 - **Independence.** Finders and verifiers are fresh subagents that never saw the conversation;
@@ -131,6 +132,12 @@ Design choices, and why:
   dedupe and rank by severity, never approve.
 - **Depth from risk, not size alone.** `risk.yml` is read from the base branch so a change cannot
   lower its own review; `security: true` paths add the security reviewer.
+- **Secrets stay out.** `review-stamp.sh diff` never prints secret-like files (`.env*`, keys,
+  credentials, `secrets/`), even untracked ones; it names them on stderr instead.
+- **Headless runs.** Subagents run in the background by default, and a `claude -p` run can end
+  before they report (the second dogfood run did exactly that, before verification). The skill
+  launches finders and verifiers in the foreground, and `automations/run-local.sh` sets
+  `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`.
 - **Feedback loop.** `review-stamp.sh` keeps a JSONL log in `.git/claude-harness/`; `publish`
   puts `review-stamp.sh summary` in the PR body (a readable list plus an
   `<!-- arffornia-review v1 … -->` marker). The weekly `review-feedback` automation reads those

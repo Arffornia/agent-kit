@@ -7,7 +7,7 @@
 #
 # A line that really needs one of these (for example a GNU form with a BSD fallback on the same
 # line) ends with the comment `# portable-ok`. A file meant for Linux only (cloud/setup.sh runs in
-# the Ubuntu cloud VM) carries `# portability: linux-only` in its first 10 lines.
+# the Ubuntu cloud VM) starts a line with that marker (`# portability: linux-only`) in its first 10 lines.
 set -uo pipefail
 if [ $# -gt 0 ]; then files="$(printf '%s\n' "$@")"
 else
@@ -54,11 +54,13 @@ RULES
 fail=0; checked=0
 while IFS= read -r f; do
   [ -n "$f" ] && [ -f "$f" ] || continue
-  head -n 10 "$f" | grep -q 'portability: linux-only' && continue
+  head -n 10 "$f" | grep -q '^# portability: linux-only' && continue
   checked=$((checked+1))
   while IFS="$(printf '\t')" read -r pat why fix; do
     [ -n "$pat" ] || continue
-    hits="$(grep -nE -- "$pat" "$f" 2>/dev/null | grep -v 'portable-ok' | grep -vE '^[0-9]+:[[:space:]]*#' || true)"
+    # Lines inside a <<'RULES' heredoc are data (this file's own rule table), not code.
+    hits="$(awk '/<<.RULES.$/ {d=1; print ""; next} /^RULES$/ {d=0; print ""; next} {print d ? "" : $0}' "$f" \
+      | grep -nE -- "$pat" 2>/dev/null | grep -v 'portable-ok' | grep -vE '^[0-9]+:[[:space:]]*#' || true)"
     [ -n "$hits" ] || continue
     while IFS= read -r h; do
       printf '%s:%s\n  %s. Fix: %s\n' "$f" "$h" "$why" "$fix"

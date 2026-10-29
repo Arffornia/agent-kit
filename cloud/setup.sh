@@ -61,20 +61,33 @@ job_apt() {
     dpkg -s "$p" >/dev/null 2>&1 || pkgs="$pkgs $p"
   done
   have java     || pkgs="$pkgs openjdk-21-jdk-headless"
-  local v ppa=0
+  # PHP from the ondrej PPA goes in its own apt call, so an unreachable PPA cannot stop the rest
+  # (shellcheck, bubblewrap and socat for the Claude Code sandbox).
+  local v php_pkgs=""
   for v in $PHP_VERSION $PHP_EXTRA; do
     have "php$v" && continue
-    [ "$ppa" = 1 ] || { bounded 60 add-apt-repository -y ppa:ondrej/php >/dev/null 2>&1 || log "PPA ondrej/php unavailable (PHP $v)"; ppa=1; }
-    pkgs="$pkgs php$v-cli php$v-xml php$v-mbstring php$v-curl php$v-sqlite3 php$v-pgsql php$v-zip php$v-intl php$v-bcmath"
+    php_pkgs="$php_pkgs php$v-cli php$v-xml php$v-mbstring php$v-curl php$v-sqlite3 php$v-pgsql php$v-zip php$v-intl php$v-bcmath"
   done
   [ -z "$PHP_VERSION" ] && ! have php && pkgs="$pkgs php-cli php-xml php-mbstring php-curl php-sqlite3 php-pgsql php-zip"
   if want drawio "$TOOLS"; then pkgs="$pkgs xvfb libgbm1 libasound2t64"; fi
-  [ -n "$pkgs" ] || { log "apt: nothing to install"; return 0; }
-  log "apt install:$pkgs"
   export DEBIAN_FRONTEND=noninteractive
-  bounded 60 apt-get update -qq || true
-  # shellcheck disable=SC2086
-  bounded 150 apt-get install -y -qq --no-install-recommends $pkgs >/dev/null || log "apt: some packages failed"
+  if [ -n "$pkgs" ]; then
+    log "apt install:$pkgs"
+    bounded 60 apt-get update -qq || true
+    # shellcheck disable=SC2086
+    bounded 150 apt-get install -y -qq --no-install-recommends $pkgs >/dev/null || log "apt: some packages failed"
+  else
+    log "apt: base packages present"
+  fi
+  if [ -n "$php_pkgs" ]; then
+    if bounded 60 add-apt-repository -y ppa:ondrej/php >/dev/null 2>&1; then
+      log "apt install (PHP):$php_pkgs"
+      # shellcheck disable=SC2086
+      bounded 120 apt-get install -y -qq --no-install-recommends $php_pkgs >/dev/null || log "apt: PHP packages failed"
+    else
+      log "PPA ondrej/php unavailable: PHP $PHP_VERSION not installed (the website needs it; see README)"
+    fi
+  fi
   if [ -n "$PHP_VERSION" ] && [ -x "/usr/bin/php$PHP_VERSION" ]; then
     update-alternatives --set php "/usr/bin/php$PHP_VERSION" >/dev/null 2>&1 || log "could not select PHP $PHP_VERSION"
     log "php: $(php -r 'echo PHP_VERSION;' 2>/dev/null || echo '?') selected"

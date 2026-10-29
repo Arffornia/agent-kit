@@ -76,42 +76,54 @@ fi
 review_gate() {
   [ "${ARFFORNIA_SKIP_REVIEW:-}" = "1" ] && return 0
   local min="${ARFFORNIA_REVIEW_MIN_LINES:-10}" cap="${ARFFORNIA_REVIEW_MAX_ROUNDS:-3}"
-  local lines tree st branch round blocking
+  local lines tree st branch round blocking sf start stamped delta
   lines="$(code_lines_changed "$base")"
   [ "${lines:-0}" -ge "$min" ] || return 0
   tree="$(snapshot_tree)" || return 0
-  # A session that changed nothing (questions, reading, reporting) is never asked to review.
-  local sf
-  if sf="$(session_tree_file)" && [ -f "$sf" ] && [ "$(cat "$sf")" = "$tree" ]; then return 0; fi
+  # A session that changed no code (questions, reading, reporting, a PROGRESS.md handoff) is
+  # never asked to review.
+  if sf="$(session_tree_file)" && [ -f "$sf" ]; then
+    start="$(cat "$sf")"
+    [ "$start" = "$tree" ] && return 0
+    delta="$(code_lines_between "$start" "$tree")" && [ "$delta" = 0 ] && return 0
+  fi
   st="$sd/review-stamp"
   branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo detached)"
   round=0
   [ "$(kv_get "$st" branch)" = "$branch" ] && round="$(kv_get "$st" round)"
   case "$round" in ''|*[!0-9]*) round=0 ;; esac
-  if [ "$(kv_get "$st" tree)" = "$tree" ]; then
+  stamped="$(kv_get "$st" tree)"
+  # Reviewed: the stamped tree, or a tree that differs from it only in docs/lockfiles/generated files.
+  if [ -n "$stamped" ] && { [ "$stamped" = "$tree" ] || { delta="$(code_lines_between "$stamped" "$tree")" && [ "$delta" = 0 ]; }; }; then
     blocking="$(kv_get "$st" blocking)"
     if [ "${blocking:-0}" != "0" ] && [ "$(cat "$sd/review-blocking-told" 2>/dev/null || true)" != "$tree" ]; then
       printf '%s\n' "$tree" > "$sd/review-blocking-told"
-      feedback "The review of this tree confirmed $blocking blocking finding(s) and the tree has not changed since. Fix them (the next stop asks for a short delta review), or tell the user which ones you left open and why. Label each finding: bash \"\${CLAUDE_PLUGIN_ROOT}/scripts/review-stamp.sh\" label <id> fixed|wrong|intended|noise."
+      REVIEW_NOTE="- The review of this tree confirmed $blocking blocking finding(s) and the tree has not changed since. Fix them (the next stop asks for a short delta review), or tell the user which ones you left open and why. Label each finding: bash \"\${CLAUDE_PLUGIN_ROOT}/scripts/review-stamp.sh\" label <id> fixed|wrong|intended|noise."
     fi
     return 0
   fi
   [ "$(cat "$sd/review-asked" 2>/dev/null || true)" = "$tree" ] && return 0   # asked once for this tree
   printf '%s\n' "$tree" > "$sd/review-asked"
   if [ "$round" -ge "$cap" ]; then
-    feedback "Review round cap reached ($round/$cap on $branch): the changes made after the last review are not independently reviewed. Say so in your report (\"not re-reviewed after round $round\") and suggest splitting the change if it keeps moving."
+    REVIEW_NOTE="- Review round cap reached ($round/$cap on $branch): the changes made after the last review are not independently reviewed. Say so in your report (\"not re-reviewed after round $round\") and suggest splitting the change if it keeps moving."
+    return 0
   fi
   local what="Run the arffornia:review skill now (in-session mode)"
   [ "$round" -gt 0 ] && what="Run the arffornia:review skill now for round $((round+1))/$cap: a delta review of what changed since the last review (the skill reads the range from the stamp)"
-  block_with "Before handing back: this session changed code, the branch now differs from its base by $lines lines of code, and the current tree has no independent review. The repository owner's standing rule (AGENTS.md: review before handing back) is that every such change gets one, even when the prompt did not mention it. $what. It sends fresh finder and verifier subagents over the diff (they never saw this conversation), keeps only confirmed findings and writes a review stamp. Then fix the confirmed blocking and major findings, or explain in your report why not. If the user asked for no review, they can set ARFFORNIA_SKIP_REVIEW=1."
+  block_with "Before handing back: this session changed code, the branch now differs from its base by $lines lines of code, and the current tree has no independent review. The harness rule set by the repository owner (agent-kit GOLDEN_PRINCIPLES #9, docs/HARNESS.md) is that every such change gets one before hand-back, even when the prompt did not mention it. $what. It sends fresh finder and verifier subagents over the diff (they never saw this conversation), keeps only confirmed findings and writes a review stamp. Then fix the confirmed blocking and major findings, or explain in your report why not. If the user asked for no review, they can set ARFFORNIA_SKIP_REVIEW=1."
 }
+REVIEW_NOTE=""
 review_gate
 
-# Reminders never chain on a hook-driven continuation.
-[ "$active" = "true" ] && exit 0
+# Reminders never chain on a hook-driven continuation (review notes still reach the agent once).
+if [ "$active" = "true" ]; then
+  [ -n "$REVIEW_NOTE" ] && feedback "Before you finish:
+$REVIEW_NOTE"
+  exit 0
+fi
 
 changed="$( { git diff --name-only "$base" 2>/dev/null; git ls-files -o --exclude-standard 2>/dev/null; } | sort -u)"
-msgs=""
+msgs="$REVIEW_NOTE"
 
 # ---------- 2. docs reminder ----------
 if printf '%s\n' "$changed" | grep -qE '^(src|app|routes|resources|lib|database|charts|k8s|scripts)/|^Makefile$'; then
@@ -119,7 +131,8 @@ if printf '%s\n' "$changed" | grep -qE '^(src|app|routes|resources|lib|database|
     k="$(printf '%s' "$changed" | hash_stdin)"
     if [ "$(cat "$sd/docs-reminded" 2>/dev/null || true)" != "$k" ]; then
       printf '%s\n' "$k" > "$sd/docs-reminded"
-      msgs="- Source files changed but AGENTS.md, README.md, docs/ and .claude/rules/ did not. If commands, layout, behaviour or a gotcha changed, update them; otherwise say \"docs unchanged: <reason>\"."
+      msgs="${msgs:+$msgs
+}- Source files changed but AGENTS.md, README.md, docs/ and .claude/rules/ did not. If commands, layout, behaviour or a gotcha changed, update them; otherwise say \"docs unchanged: <reason>\"."
     fi
   fi
 fi

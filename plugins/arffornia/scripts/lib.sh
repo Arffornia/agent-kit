@@ -221,6 +221,22 @@ EOF_UNTRACKED
   printf '%s' "$total"
 }
 
+# code_lines_between <tree-ish A> <tree-ish B>: added + deleted code lines between two states
+# (review_exempt_path files and binaries excluded). Empty when either object is missing.
+code_lines_between() {
+  local a d f total=0 out
+  out="$(git diff --numstat "$1" "$2" 2>/dev/null)" || return 1
+  while IFS="$(printf '\t')" read -r a d f; do
+    [ -n "$f" ] || continue
+    case "$a" in ''|*[!0-9]*) continue ;; esac
+    review_exempt_path "$f" && continue
+    total=$(( total + a + d ))
+  done <<EOF_BETWEEN
+$out
+EOF_BETWEEN
+  printf '%s' "$total"
+}
+
 # kv_get <file> <key>: value of a `key=value` line (empty when missing).
 kv_get() { [ -f "$1" ] && sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1 || true; }
 

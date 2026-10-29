@@ -8,6 +8,7 @@ hooks), the templates repos copy, a cloud setup script and a Codex skills sync. 
 ## Map
 | Path | What |
 |---|---|
+| `.claude/settings.json` | This repo's own settings: the v2 template's deny rules and sandbox (no plugin enablement: develop with `claude --plugin-dir plugins/arffornia`), so kit work and the weekly harness-feedback run are sandboxed |
 | `.claude-plugin/marketplace.json` | Marketplace `agent-kit`; one entry `arffornia` → `./plugins/arffornia` |
 | `plugins/arffornia/.claude-plugin/plugin.json` | Plugin manifest (no `version`: users track commits) |
 | `plugins/arffornia/hooks/hooks.json` | Hook wiring (exec form, `${CLAUDE_PLUGIN_ROOT}`), loaded automatically |
@@ -38,11 +39,14 @@ jq . plugins/arffornia/hooks/hooks.json templates/.claude/settings.json >/dev/nu
   exact documented formats and validate.
 - Hook scripts: portable bash (macOS bash 3.2 + Linux), `set -euo pipefail`, guard every
   `grep` in a pipeline with `|| true`, quiet no-op when a tool is missing or outside a git repo,
-  state only under `.git/claude-harness/`. Block messages say why and what to do instead.
+  state only under `.git/claude-harness/` (the review snapshots also write ordinary loose git
+  objects, which `git gc` prunes). Block messages say why and what to do instead.
   Keep SessionStart, PreToolUse and SessionEnd under ~2 s. Add a case to `tests/run.sh` for
   every behaviour change.
 - Skills: concrete commands, under ~150 lines, long material in sibling files. Anything that
-  pushes, publishes, deletes or releases sets `disable-model-invocation: true`. Nothing tells
+  pushes, publishes, deletes or releases sets `disable-model-invocation: true`. One owner-approved
+  exception: `harness-feedback` opens or comments `harness-feedback` issues in this repo, marked
+  `<!-- side-effect-approved: … -->` so the lint accepts it; any new exception needs Brian's OK. Nothing tells
   an agent to merge, tag, release, push to `main` or touch secrets.
 - Keep the marketplace entry `name` and `plugin.json` `name` identical (`arffornia`).
 - A template change is a change in every repo that adopts it next: say so in the PR.

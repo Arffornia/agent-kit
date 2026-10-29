@@ -33,7 +33,7 @@ if [ -f composer.json ]; then
   need php "Install PHP. $(pm php php-cli php85)"
   need composer "$(pm composer composer php85Packages.composer)"
   # The PHP constraint comes from composer.json ("php": "^8.5" on the website); composer explains a mismatch.
-  composer check-platform-reqs --no-dev --lock >/dev/null 2>&1 || \
+  [ ! -f composer.lock ] || composer check-platform-reqs --no-dev --lock >/dev/null 2>&1 || \
     warn "your PHP ($(php -r 'echo PHP_VERSION;' 2>/dev/null)) does not meet this repo's platform requirements; run \`composer check-platform-reqs\`. $(pm php php-cli php85)"
 fi
 [ -f package.json ]  && need node "Install Node 22 LTS. $(pm node@22 nodejs nodejs_22)" && need npm "npm ships with Node."

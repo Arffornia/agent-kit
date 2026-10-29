@@ -51,8 +51,8 @@ is_secret_path() { # <path>
 
 # ---------- generated / lock files (Edit, Write) ------------------------------------------
 check_generated() { # <abs path>
-  local p="${1//\\//}" b rel root
-  p="$(phys_path "$p")"
+  local p="${1//\\//}" lp b rel root
+  lp="$p"; p="$(phys_path "$p")"   # match generated paths on the physical path (macOS /private/...)
   b="$(basename -- "$p")"
   case "$b" in
     package-lock.json|npm-shrinkwrap.json)
@@ -82,7 +82,7 @@ check_generated() { # <abs path>
       block "$rel is a dependency or build output directory; edits are overwritten on the next install/build." \
         "change the source that produces it (or the dependency version), then rebuild with the Makefile target." ;;
   esac
-  if is_secret_path "$p"; then
+  if is_secret_path "$lp" || is_secret_path "$p"; then   # both: a symlinked ~/.ssh or /run/secrets resolves elsewhere
     block "$b looks like a secret file; secrets never go through an agent or into git." \
       "edit the matching .env.example (placeholders only) and tell the maintainer which value to set."
   fi

@@ -54,8 +54,16 @@ case "$cmd" in
     if [ "$(cur_round)" -gt 0 ] && last="$(kv_get "$ST" commit)" && [ -n "$last" ] && git cat-file -e "$last" 2>/dev/null; then
       from="$last"
     fi
+    # Secret-like files never reach the transcript, even when untracked and not ignored.
     # shellcheck disable=SC2086
-    git --no-pager diff $stat "$from" "$cur"
+    git --no-pager diff $stat "$from" "$cur" -- . \
+      ':(glob,exclude)**/.env' ':(glob,exclude)**/.env.*' ':(glob,exclude)**/*.pem' ':(glob,exclude)**/*.key' \
+      ':(glob,exclude)**/*.p12' ':(glob,exclude)**/*.pfx' ':(glob,exclude)**/*.jks' ':(glob,exclude)**/*.keystore' \
+      ':(glob,exclude)**/*.tfvars' ':(glob,exclude)**/*.tfstate' ':(glob,exclude)**/credentials*.json' \
+      ':(glob,exclude)**/service-account*.json' ':(glob,exclude)**/secrets/**' ':(glob,exclude)**/id_rsa*' ':(glob,exclude)**/id_ed25519*'
+    git --no-pager diff --name-only "$from" "$cur" -- ':(glob)**/.env' ':(glob)**/.env.*' ':(glob)**/*.pem' ':(glob)**/*.key' \
+      ':(glob)**/credentials*.json' ':(glob)**/service-account*.json' ':(glob)**/secrets/**' ':(glob)**/*.tfvars' 2>/dev/null \
+      | grep -vE '\.(example|sample)$' | sed 's/^/review-stamp: not shown (secret-like path): /' >&2 || true
     ;;
   record)
     level="" counts="" blocking="" findings=""
@@ -88,16 +96,19 @@ case "$cmd" in
     } > "$ST.tmp" && mv "$ST.tmp" "$ST"
     jq -nc --arg d "$(now)" --arg b "$branch" --arg base "$base" --arg t "$tree" --arg c "$commit" \
       --argjson r "$round" --arg l "$level" --arg counts "$counts" --argjson blk "$blocking" --argjson f "$fjson" \
-      '{type:"review", date:$d, branch:$b, base:$base, tree:$t, snapshot:$c, round:$r, level:$l, counts:$counts, blocking:$blk, findings:$f}' >> "$LOG"
+      '{type:"review", date:$d, branch:$b, base:$base, tree:$t, snapshot:$c, round:$r, level:$l, counts:$counts, blocking:$blk, findings:($f | map(. + {round:$r}))}' >> "$LOG"
     printf 'Recorded review round %s for %s (tree %s): %s\n' "$round" "$branch" "${tree:0:12}" "$counts"
     ;;
   label)
     [ $# -ge 2 ] || die "usage: label <finding-id> <fixed|wrong|intended|noise> [note]"
     case "$2" in fixed|wrong|intended|noise) ;; *) die "label must be fixed, wrong, intended or noise" ;; esac
     need_jq
-    jq -nc --arg d "$(now)" --arg b "$branch" --arg id "$1" --arg l "$2" --arg n "${3:-}" \
-      '{type:"label", date:$d, branch:$b, id:$id, label:$l, note:$n}' >> "$LOG"
-    printf 'Labelled %s as %s\n' "$1" "$2"
+    r="$(cur_round)"
+    [ "$r" -gt 0 ] || die "no review recorded on this branch yet"
+    # A label applies to that id in the latest round (each round numbers its findings from F1).
+    jq -nc --arg d "$(now)" --arg b "$branch" --arg id "$1" --arg l "$2" --arg n "${3:-}" --argjson r "$r" \
+      '{type:"label", date:$d, branch:$b, round:$r, id:$id, label:$l, note:$n}' >> "$LOG"
+    printf 'Labelled %s (round %s) as %s\n' "$1" "$r" "$2"
     ;;
   summary)
     need_jq
@@ -105,16 +116,17 @@ case "$cmd" in
     jq -rs --arg b "$branch" '
       [ .[] | select(.branch == $b) ] as $all
       | [ $all[] | select(.type == "review") ] as $rev
-      | ( [ $all[] | select(.type == "label") ] | map({(.id): .label}) | add // {} ) as $lab
-      | ( [ $rev[].findings[]? ] | map(. + {label: ($lab[.id] // "unlabelled")}) | unique_by(.id) ) as $f
+      | ( [ $all[] | select(.type == "label") ] | map({("\(.round // 0)/\(.id)"): .label}) | add // {} ) as $lab
+      | ( [ $rev[].findings[]? ] | map(. + {label: ($lab["\(.round // 0)/\(.id)"] // "unlabelled")})
+          | unique_by("\(.round // 0)/\(.id)") ) as $f
       | if ($rev | length) == 0 then "No in-session review recorded on this branch."
         else
           "### In-session review\n"
           + "Rounds: \($rev | length) · last: \($rev[-1].counts) · risk: \($rev[-1].level)\n"
           + ( if ($f | length) == 0 then "No confirmed findings.\n"
-              else ($f | map("- \(.id) · \(.severity) · \(.lens) · `\(.path)` · \(.title) → **\(.label)**") | join("\n")) + "\n" end )
+              else ($f | map("- R\(.round // 0).\(.id) · \(.severity) · \(.lens) · `\(.path | gsub("`"; ""))` · \(.title | gsub("<!--|-->"; "")) → **\(.label)**") | join("\n")) + "\n" end )
           + "\n<!-- arffornia-review v1 " + ({rounds: ($rev | length), level: $rev[-1].level, counts: $rev[-1].counts,
-               findings: ($f | map({id, severity, lens, path, title, label}))} | tojson) + " -->"
+               findings: ($f | map({round, id, severity, lens, path, title, label}))} | tojson | gsub("--"; "-\\u002d")) + " -->"
         end' "$LOG"
     ;;
   *) die "unknown command $cmd (status | diff | record | label | summary)" ;;

@@ -68,7 +68,12 @@ jobs:
         run: |
           npx -y @anthropic-ai/claude-code@2.1.312 plugin validate .
           npx -y @anthropic-ai/claude-code@2.1.312 plugin validate plugins/arffornia
-      - name: actionlint (workflow templates)
+      - name: actionlint (workflow templates), pinned release verified by sha256
+        env:
+          AL_VERSION: 1.7.7
+          AL_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
         run: |
-          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          curl -sSfLo actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${AL_VERSION}/actionlint_${AL_VERSION}_linux_amd64.tar.gz"
+          echo "${AL_SHA256}  actionlint.tgz" | sha256sum -c -
+          tar xzf actionlint.tgz actionlint
           git ls-files -z '.github/workflows/*.yml' 'templates/ci/*.yml' | xargs -0 ./actionlint -shellcheck=

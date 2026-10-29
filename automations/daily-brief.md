@@ -1,6 +1,6 @@
 # daily-brief
 
-Schedule: weekdays 07:40 Europe/Paris. Normal run: ~10 min / 30 turns. Hard cap: 40 min / 120 turns.
+Schedule: weekdays 07:40 Europe/Paris. Model: Sonnet (see agent-kit docs/MODELS.md). Normal run: ~10 min / 30 turns. Hard cap: 40 min / 120 turns.
 
 ## Goal
 Give Brian, in under two minutes of reading, what needs him today across the Arffornia repos:
@@ -14,7 +14,7 @@ Use repository-scoped REST calls only, for example:
 ```bash
 gh api "repos/Arffornia/$R/pulls?state=open&per_page=100"
 gh api "repos/Arffornia/$R/commits/$SHA/check-runs" --jq '.check_runs[] | [.name,.conclusion] | @tsv'
-gh api "repos/Arffornia/$R/pulls/$N/reviews"          # AI review: body starts with "Findings: N"
+gh api "repos/Arffornia/$R/pulls/$N" --jq .body       # in-session review block: "Rounds: … · last: Findings: N (…)"
 gh api "repos/Arffornia/$R/issues?state=open&since=$SINCE&per_page=100"   # skip items with .pull_request
 gh api "repos/Arffornia/$R/actions/runs?branch=main&per_page=5"
 gh api "repos/Arffornia/$R/issues?labels=needs-decision&state=open"
@@ -27,9 +27,9 @@ scheduled-task history is available; otherwise use the previous weekday 07:00 Eu
 bookmark (`since` = the time you started).
 
 ## Classify
-- **Ready to merge**: open, not draft, all required checks green, mergeable, the latest AI review
+- **Ready to merge**: open, not draft, all required checks green, mergeable, the in-session review block in the PR body
   has `blocking 0`, no unresolved "changes requested", and stacked PRs only when their base is merged.
-- **Needs a fix**: red checks, or AI review with blocking > 0, or merge conflict. Name the failing check.
+- **Needs a fix**: red checks, or an in-session review with blocking > 0 (or no review block on a code change), or merge conflict. Name the failing check.
 - **Red CI on main**: the latest `main` run of any workflow failed. Give the failing job and first error line.
 - **New issues** since the bookmark, with labels; flag any without `type:`/`priority:` labels.
 - **Decisions waiting**: open `needs-decision` issues, oldest first, with age in days.
@@ -47,7 +47,7 @@ bookmark (`since` = the time you started).
 Daily brief · <weekday> <YYYY-MM-DD> · since <since>
 
 Ready to merge (n)
-- https://github.com/Arffornia/<repo>/pull/<n> — <title> · <checks> · AI review 0 blocking
+- https://github.com/Arffornia/<repo>/pull/<n> — <title> · <checks> · review 0 blocking
 Needs a fix (n)
 - https://github.com/Arffornia/<repo>/pull/<n> — <title> · <what is red / blocking finding>
 Red CI on main (n)

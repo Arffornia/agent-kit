@@ -1,6 +1,6 @@
 # doc-gardener
 
-Schedule: weekly, Monday 05:20 Europe/Paris. Normal run: ~30 min / 80 turns. Hard cap: 2 h / 300 turns.
+Schedule: weekly, Monday 05:20 Europe/Paris. Model: Sonnet (see agent-kit docs/MODELS.md). Normal run: ~30 min / 80 turns. Hard cap: 2 h / 300 turns.
 
 ## Goal
 Keep each repo's agent-facing docs true: `AGENTS.md`, `README.md`, `CONTRIBUTING.md`,
@@ -52,7 +52,7 @@ agent:doc-gardener run:<date> turns:<n> duration:<m>
 ## Lethal trifecta
 | Leg | This agent |
 |---|---|
-| Private data | None: public repos only; no secrets in its environment beyond a repo-scoped token. |
+| Private data | None: public repos only; no secrets in its environment; GitHub access is Brian's, limited by deny rules, the guard and branch protection. |
 | Untrusted content | Yes: repo files, merged PR text, external link targets. |
 | External output | Limited: draft PRs on Arffornia repos, reviewed by Brian before merge. |
 | Cut | Private data. Do not give this agent access to Notion, mail or the infra cluster. |

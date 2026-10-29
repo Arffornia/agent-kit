@@ -1,6 +1,6 @@
 # security-audit
 
-Schedule: monthly, 2nd, 06:25 Europe/Paris. Normal run: ~60 min / 150 turns. Hard cap: 4 h / 600 turns.
+Schedule: monthly, 2nd, 06:25 Europe/Paris. Model: Opus (see agent-kit docs/MODELS.md). Normal run: ~60 min / 150 turns. Hard cap: 4 h / 600 turns.
 
 ## Goal
 Find new security weaknesses across the Arffornia repos before someone else does, and tell Brian
@@ -61,4 +61,4 @@ agent:security-audit run:<date> turns:<n> duration:<m>
 | Private data | Yes: its findings are private (unfixed weaknesses). |
 | Untrusted content | Yes: dependency code, advisories, repo text. |
 | External output | Cut: the report goes only to Brian. Public issues are limited to the neutral hygiene template above and contain no finding detail. |
-| Cut | External output. Never give this agent web posting, Discord, mail sending, or a PR-writing token. |
+| Cut | External output. Never give this agent connectors for web posting, Discord or mail; run it with no connectors and its report private to Brian. |

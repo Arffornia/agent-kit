@@ -1,6 +1,6 @@
 # quality-score
 
-Schedule: monthly, 5th, 06:55 Europe/Paris. Normal run: ~40 min / 120 turns. Hard cap: 3 h / 450 turns.
+Schedule: monthly, 5th, 06:55 Europe/Paris. Model: Sonnet (see agent-kit docs/MODELS.md). Normal run: ~40 min / 120 turns. Hard cap: 3 h / 450 turns.
 
 ## Goal
 Keep `QUALITY_SCORE.md` in each repo an honest, evidence-based grade per area, so Brian and agents
@@ -15,7 +15,7 @@ know where the code is weak and what to improve next. One draft PR per repo whos
   - mutation score from the latest `Mutation (nightly)` artifact (report only);
   - guard baseline entries in the area (`archunit_store`, depcruise known violations, deptrac baseline);
   - lint/static-analysis warnings in the area (phpstan, ESLint, javac warnings);
-  - open bugs and security issues labelled for the area, AI review blocking findings on merged PRs;
+  - open bugs and security issues labelled for the area, in-session review blocking findings on merged PRs (PR body markers);
   - docs: AGENTS.md/rules coverage of the area.
 
 ## Grade (A-F per area; write the reason in one line)

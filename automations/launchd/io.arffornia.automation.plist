@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS launchd template for one agent-kit automation, run with the logged-in claude CLI.
+  1. Copy to ~/Library/LaunchAgents/io.arffornia.<agent>.plist and replace AGENT, USER and the paths.
+  2. launchctl load ~/Library/LaunchAgents/io.arffornia.<agent>.plist   (unload to stop)
+  Runs at the next wake if the Mac was asleep at the scheduled time.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>io.arffornia.AGENT</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/USER/src/agent-kit/automations/run-local.sh</string>
+    <string>AGENT</string>
+    <string>/Users/USER/src/agent-kit</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- Homebrew (Apple Silicon) and nix profiles, so claude, gh, git and node are found. -->
+    <key>PATH</key><string>/opt/homebrew/bin:/opt/homebrew/opt/node@22/bin:/Users/USER/.nix-profile/bin:/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>1</integer>
+    <key>Hour</key><integer>5</integer>
+    <key>Minute</key><integer>35</integer>
+  </dict>
+  <key>StandardOutPath</key><string>/Users/USER/Library/Logs/arffornia-AGENT.log</string>
+  <key>StandardErrorPath</key><string>/Users/USER/Library/Logs/arffornia-AGENT.log</string>
+</dict>
+</plist>

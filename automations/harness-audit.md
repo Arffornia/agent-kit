@@ -1,6 +1,6 @@
 # harness-audit
 
-Schedule: monthly, 1st, 06:10 Europe/Paris. Normal run: ~40 min / 120 turns. Hard cap: 3 h / 450 turns.
+Schedule: monthly, 1st, 06:10 Europe/Paris. Model: Opus (see agent-kit docs/MODELS.md). Normal run: ~40 min / 120 turns. Hard cap: 3 h / 450 turns.
 
 ## Goal
 Check that the agent harness in every repo still does its job ("the harness makes the quality,
@@ -13,21 +13,27 @@ not the model") and propose the smallest fixes. One issue in agent-kit summarise
   (`archunit_store/`, `.dependency-cruiser-known-violations.json`, `deptrac.baseline.yaml`).
 - agent-kit `main`: plugin, templates, `evals/`, automations; the outputs of the other automations
   (their footers `agent:<name> run:... turns:... duration:...`).
-- Last month's PRs per repo (merged, closed unmerged, reverted) and AI review results.
+- Last month's PRs per repo (merged, closed unmerged, reverted) and the in-session review blocks in their bodies (`<!-- arffornia-review v1 … -->`).
 
 ## Checks (each finding: repo, evidence, proposed fix, effort S/M)
 1. **Map, not manual**: AGENTS.md ≤ 100 lines; `CLAUDE.md` is `@AGENTS.md`; rules have `paths`.
 2. **Settings drift** vs `templates/.claude/settings.json`: deny rules present, plugin enabled, hooks present.
 3. **Zero-search start**: `make check`/`test`/`build`/`lint` exist and `make -n check` works; init script exists.
-4. **Sensors**: CI runs `make check` on PRs; gitleaks, AI review, ADR lint where `docs/decisions` exists;
+4. **Sensors**: CI runs `make check` on PRs; gitleaks, ADR lint where `docs/decisions` exists;
    guards wired into `make check`.
 5. **Debt only shrinks**: compare each guard baseline with last month (`git log -p` on the file); growth = finding.
 6. **Escalation**: a review finding category that appeared ≥ 2 times this month without a sensor
-   (`automation:review-feedback` data, AI review bodies) → propose the lint/guard/test that would catch it.
-7. **Measure the harness**: time to first green CI per PR, review rounds per PR, revert rate, share of AI
+   (`automation:review-feedback` data, review markers in PR bodies) → propose the lint/guard/test that would catch it.
+7. **Measure the harness**: time to first green CI per PR, review rounds per PR, revert rate, share of in-session review
    findings labelled `fixed` vs `wrong`/`noise`, automations hitting their cap or closed unmerged.
 8. **Evals**: every reverted PR and every `wrong` AI finding this month has a case in `evals/`.
-9. **Portability**: `.agents/skills` sync present where Codex is used.
+9. **Portability**: `.agents/skills` sync present where Codex is used; the kit's CI (macOS bash 3.2
+   job) green; no new GNU-only command in skills (`tests/portability.sh`).
+10. **Review coverage**: merged code PRs without an in-session review block; review rounds that hit
+    the cap; whether Claude Code's built-in `/code-review` now offers a machine-readable result and
+    REVIEW.md support (then propose making `arffornia:review` a thin wrapper, docs/HARNESS.md).
+11. **Model choices**: new Claude models or prices since last month → re-check docs/MODELS.md and
+    propose an eval ablation run (`evals/run.py reviewer --runs 3`) before any change.
 
 ## Bookmark
 `<!-- bookmark:harness-audit {"month":"YYYY-MM","baselines":{"<repo>/<file>":<line count>}} -->` in last
@@ -47,7 +53,7 @@ Harness audit YYYY-MM
 Scorecard
 | Repo | Map | Settings | Commands | Sensors | Debt trend | Evals |   (ok / warn / fail per cell)
 
-Metrics: time to first green p50 <x>h · review rounds p50 <x> · reverts <n> · AI findings fixed <a> / wrong <b> / noise <c>
+Metrics: time to first green p50 <x>h · review rounds p50 <x> · reverts <n> · review findings fixed <a> / wrong <b> / noise <c>
 
 Findings (most impact first)
 1. <repo> · <check> · evidence: <path:line or command output> · fix: <one line> · effort S|M

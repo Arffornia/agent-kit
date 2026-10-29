@@ -1,6 +1,9 @@
 # Architecture guard for the Laravel website (agent-kit template). Copy to the repo root.
 # Layering: Controllers -> Services -> Repositories -> Models (Eloquent).
-#   - no Eloquent / query builder / DB facade in controllers (and no Models, no Repositories)
+#   - controllers may use Models (route-model binding, type hints, passing instances along:
+#     idiomatic Laravel) but no Eloquent / query builder / DB facade and no Repositories
+#   Limit: deptrac sees class references, so `Model::where()` in a controller counts as "uses
+#   Model" and is not caught here; the Laravel rule and the in-session review cover queries.
 #   - no Http facade or HTTP client outside Services
 # Run: make arch   (see templates/guards/README.md). Fix hints: tools/deptrac-explain.php.
 # Existing offenders live in deptrac.baseline.yaml (generated); new violations fail.
@@ -60,12 +63,13 @@ deptrac:
           value: ^GuzzleHttp\\.*
 
   ruleset:
-    # Controllers parse input, call a service, shape the response. Nothing else.
-    # If the maintainer prefers route-model binding, add `- Model` here; keep Eloquent forbidden.
+    # Controllers parse input, call a service, shape the response. Models are allowed for
+    # route-model binding (decision 2026-10-29); queries stay in repositories.
     Controller:
       - Service
       - Request
       - Resource
+      - Model
     Request: [Model]           # FormRequest rules may reference models (exists:, policies)
     Resource: [Model]          # API Resources wrap models for output
     Middleware: [Service, Model]

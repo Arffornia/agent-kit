@@ -3,11 +3,11 @@
 Deterministic sensors for the layering rules agents break most. Each failure message says what
 is wrong **and how to fix it**, so an agent can repair its own change without asking. All three
 start with a **baseline** of the violations that exist on adoption: CI stays green, every new
-violation fails, and the baseline may only shrink (reviewers and the AI review flag growth).
+violation fails, and the baseline may only shrink (reviewers and the in-session review flag growth).
 
 | Stack | Tool | Files | Rules |
 |---|---|---|---|
-| Laravel (Website) | [deptrac](https://github.com/deptrac/deptrac) 4.x | `laravel/deptrac.yaml`, `laravel/deptrac.baseline.yaml`, `laravel/tools/deptrac-explain.php` | Controllers → Services → Repositories → Models; no Eloquent/DB/Models/Repositories in controllers; Http facade/client only in Services |
+| Laravel (Website) | [deptrac](https://github.com/deptrac/deptrac) 4.x | `laravel/deptrac.yaml`, `laravel/deptrac.baseline.yaml`, `laravel/tools/deptrac-explain.php` | Controllers → Services → Repositories → Models; controllers may use Models (route-model binding) but no Eloquent/query builder/DB facade or Repositories; Http facade/client only in Services |
 | Electron + Vue (Launcher) | [dependency-cruiser](https://github.com/sverweij/dependency-cruiser) 18.6 | `electron/.dependency-cruiser.cjs`, `electron/tools/check-preload-exposure.mjs`, `electron/tools/preload-exposure-known.json` | renderer ↛ main/preload/Node/electron; main ↛ renderer/preload; preload imports only `electron`; preload exposes only `window.api`; circular imports warn |
 | NeoForge (Mod) | [ArchUnit](https://www.archunit.org) 1.5 | `neoforge/ArchitectureTest.java`, `neoforge/archunit.properties`, `neoforge/build.gradle.snippet` | common code ↛ client classes; every `Serverbound*` payload calls the validation helper; no `Component.literal` outside an allow-list |
 
@@ -29,8 +29,11 @@ arch: ## Architecture guard (deptrac); prints a fix for each violation
 check: lint arch test   # add arch to the existing check prerequisites
 ```
 `deptrac-explain.php` maps each `(FromLayer on ToLayer)` violation to a one-line fix and exits 1.
-If the maintainer wants route-model binding in controllers, add `Model` to the `Controller`
-ruleset (Eloquent stays forbidden). Not executed in the kit's CI: verify on first adoption.
+Controllers may depend on `App\Models\*` (route-model binding is idiomatic Laravel, decided
+2026-10-29); Eloquent, the query builder, the DB facade and Repositories stay forbidden there.
+deptrac sees class references only, so a `Model::where()` query written in a controller counts as
+"uses Model": the Laravel rule (`.claude/rules/php-laravel.md`) and the in-session review cover it.
+Not executed in the kit's CI: verify on first adoption.
 
 ## Electron launcher: dependency-cruiser
 

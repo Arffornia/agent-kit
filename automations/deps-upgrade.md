@@ -1,6 +1,6 @@
 # deps-upgrade
 
-Schedule: weekly, Tuesday 05:35 Europe/Paris. Normal run: ~45 min / 120 turns. Hard cap: 3 h / 450 turns.
+Schedule: weekly, Tuesday 05:35 Europe/Paris. Model: Opus (see agent-kit docs/MODELS.md). Normal run: ~45 min / 120 turns. Hard cap: 3 h / 450 turns.
 
 ## Goal
 Keep dependencies current with **one draft PR per library**, each proven green by `make check`
@@ -62,7 +62,7 @@ agent:deps-upgrade run:<date> turns:<n> duration:<m>
 ## Lethal trifecta
 | Leg | This agent |
 |---|---|
-| Private data | Repo-scoped push token only; no registry publish tokens, no cloud credentials. |
+| Private data | Brian's GitHub access through the scheduled task (no registry publish tokens, no cloud credentials in the environment). |
 | Untrusted content | Yes: upstream changelogs, package contents, install scripts. |
 | External output | Draft PRs (public). |
-| Cut | Private data: the token can push branches but not publish packages, read secrets or merge. Run installs with scripts disabled where the ecosystem allows (`npm ci --ignore-scripts` first, then a scripted install only for the final check). |
+| Cut | Private data: the cloud environment holds no secrets; merge, release, secret and force-push commands are blocked by the repo's deny rules and the arffornia guard, and branch protection on `main` stops a direct push. Run installs with scripts disabled where the ecosystem allows (`npm ci --ignore-scripts` first, then a scripted install only for the final check). |

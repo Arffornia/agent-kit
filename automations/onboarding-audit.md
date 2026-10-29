@@ -1,6 +1,6 @@
 # onboarding-audit
 
-Schedule: monthly, 3rd, 06:40 Europe/Paris (one repo per run, rotating). Normal run: ~60 min / 150 turns.
+Schedule: monthly, 3rd, 06:40 Europe/Paris (one repo per run, rotating). Model: Sonnet (see agent-kit docs/MODELS.md). Normal run: ~60 min / 150 turns.
 Hard cap: 4 h / 600 turns.
 
 ## Goal
@@ -59,4 +59,4 @@ agent:onboarding-audit run:<date> turns:<n> duration:<m>
 | Private data | None: public repo, no secrets in the environment (a docs bug if `make check` needs one). |
 | Untrusted content | Yes: repo docs and scripts it runs, install scripts of dependencies. |
 | External output | Issues in the audited repo (public). |
-| Cut | Private data. Run in an environment with no credentials except an issue-writing token. |
+| Cut | Private data. Run in a cloud environment with no secrets; its only write is issues, enforced by the prompt, deny rules and the guard. |

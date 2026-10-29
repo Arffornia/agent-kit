@@ -4,7 +4,6 @@
 // Exit code 1 when there is at least one (non-baselined) violation.
 
 $hints = [
-    'Controller>Model' => 'Controllers must not touch models. Move the lookup into a Service method that calls a Repository, and pass ids/DTOs in and Resources out.',
     'Controller>Eloquent' => 'No Eloquent, query builder or DB facade in controllers. Add a Repository method for the query and call it from a Service.',
     'Controller>Repository' => 'Controllers call Services, not Repositories. Add a Service method that wraps the repository call (transactions and rules live there).',
     'Controller>HttpClient' => 'Outgoing HTTP belongs in a Service (timeouts, retries, Http::fake in tests). Move the call to app/Services and inject the service.',

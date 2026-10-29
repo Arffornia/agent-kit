@@ -65,3 +65,13 @@ case-insensitive for `must_match`).
 - The environment of a nested agent may set `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`; the runner
   sets it to 3 so the reviewer can spawn finders and verifiers. Without that the reviewer
   falls back to sequential passes and says so.
+
+## Results after the in-session rework (2026-10-29, Claude Code 2.1.312)
+
+- Triggers: the 10 review / harness-feedback / learning-card / work-ticket cases (including the
+  near-miss negatives) pass **3/3 each (pass^3)** with `--runs 3`.
+- Reviewer with the new `review-finder` (Opus) and `review-verifier` (Sonnet) agents: **5/5**
+  (1 public + 4 held). Two cases first hit the old 20-minute runner timeout (finders plus a
+  verifier per candidate take longer); they pass with a longer budget, now the default (x25).
+- Model ablation still to run: `--runs 3` on the reviewer suite with the verifier on Opus vs
+  Sonnet, kept only if pass^3 does not drop (agent-kit docs/MODELS.md).

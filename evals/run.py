@@ -206,7 +206,7 @@ def cmd_reviewer(a) -> int:
     os.makedirs(outdir, exist_ok=True)
     fails = 0
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
-        for c, (ok, why) in zip(cases, ex.map(lambda c: run_reviewer(c, a.model, outdir, a.timeout * 10), cases)):
+        for c, (ok, why) in zip(cases, ex.map(lambda c: run_reviewer(c, a.model, outdir, a.timeout * 25), cases)):
             fails += not ok
             print(f"{'PASS' if ok else 'FAIL'}  {c['id']:<32} {why}")
     print(f"reviewer: {len(cases) - fails}/{len(cases)} passed · outputs in {outdir}")
@@ -269,7 +269,7 @@ def main() -> int:
     ap.add_argument("--runs", type=int, default=1)
     ap.add_argument("--model")
     ap.add_argument("--workers", type=int, default=3)
-    ap.add_argument("--timeout", type=int, default=120, help="seconds per trigger run (reviewer: x10)")
+    ap.add_argument("--timeout", type=int, default=120, help="seconds per trigger run (reviewer: x25; finders + per-candidate verifiers take 20-40 min)")
     a = ap.parse_args()
     if a.what == "list":
         return cmd_list(a)

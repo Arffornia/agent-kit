@@ -12,54 +12,35 @@ it applies to Arffornia. Topic: `$ARGUMENTS` (or what just happened).
 
 ## 1. Is it card-worthy?
 
-Write a card only if at least one is true; otherwise skip silently:
-- it is ahead of common practice (a recent technique, a new tool or model capability, a
-  design from a strong source such as an Anthropic, OpenAI or Meta engineering post, a paper,
-  a benchmark) and you applied or evaluated it;
-- it changed a measurable result here (time to green, review false positives, cost, a bug
-  class that disappeared);
-- it explains a mechanism Brian asked about or would need to judge a decision.
+Only when all three hold (the tech-watch README's rule); otherwise skip silently:
+- **We built or used it**: it starts from real work in our repos, not a news item.
+- **It is genuinely high value to learn**: state of the art, surprising, or reusable elsewhere.
+  A routine fix, a library upgrade or a config tweak is not a card.
+- **There is something to propose**: at least one concrete next step for our setup.
 
-Not a card: routine fixes, things already in the playbook, opinions without a source.
-
-## 2. Where it goes
+## 2. Where it goes and in what shape
 
 ```bash
 P="${AGENT_PLAYBOOK_DIR:-$HOME/agent-playbook}"
-test -f "$P/veille/README.md" && sed -n '1,120p' "$P/veille/README.md"
+test -f "$P/veille/README.md" && cat "$P/veille/README.md" "$P/veille/inbox/README.md" 2>/dev/null
 ```
-- The README exists: follow its format, file name and destination exactly (it is owned by the
-  tech-watch agent and wins over this skill).
-- It does not: write `$P/veille/inbox/<YYYY-MM-DD>-<slug>.md` in the format below
-  (`mkdir -p` the folder). Never commit or push the playbook repo from here.
-- No writable playbook (cloud session, another machine): put the card in your final report
-  under "Learning card" so the human can file it.
+The tech-watch README owns the format and destination and wins over this skill. Today it says:
+- unsure, or no time: a **proposal** in `$P/veille/inbox/<yyyy-mm-dd>-<slug>.md`, 10 lines max:
+  ```markdown
+  # <Proposed card title>
+  - Why it matters: <one line>
+  - What we built: <repo, PR or commit links>
+  - Best-in-class references: <2-3 URLs>
+  - Proposed by: <agent / session>, <date>
+  ```
+- a full card (`veille/cards/`, sections and front-matter per the README, plus an `INDEX.md`
+  line): at most one per run, only after the main task is done.
 
-## 3. Default format (when there is no README)
+No README: write the proposal format above to `$P/veille/inbox/` (`mkdir -p`). Never commit or
+push the playbook repo from here. No writable playbook (cloud session, another machine): put
+the proposal in your final report under "Learning card" so a human can file it.
 
-```markdown
----
-title: <what it is, in a few words>
-date: <YYYY-MM-DD>
-source: <repo / PR / session URL where it came up>
-tags: [<area>, <technique>]
-status: inbox
----
-
-**In one sentence**: <the idea>.
-
-**Why it matters**: <the problem it solves, with a number if there is one>.
-
-**How it works**: <3-6 lines or a small diagram: the mechanism, not marketing>.
-
-**How we use it / could use it in Arffornia**: <where, with links>.
-
-**Go further**: <what would push it further: the next experiment>.
-
-**Sources**: <title - URL (date)>, at least one primary source.
-```
-
-Keep it under 40 lines, in English, with full links. No secrets or personal data.
+English, plain sentences, every number with a source, no secrets or personal data.
 
 ## Report
 

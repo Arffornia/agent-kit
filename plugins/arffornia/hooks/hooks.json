@@ -1,5 +1,5 @@
 {
-  "description": "Arffornia harness: repo-state card at start, guards before tools, format+lint after edits, make check gate at stop, automatic PROGRESS.md handoff, issue context from #numbers.",
+  "description": "Arffornia harness: repo-state card at start, issue context and correction hints on prompts, guards before tools, format+lint after edits, make check + in-session review gate at stop, automatic PROGRESS.md handoff.",
   "hooks": {
     "SessionStart": [
       {
@@ -12,7 +12,8 @@
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/issue-context.sh"], "timeout": 10 }
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/issue-context.sh"], "timeout": 10 },
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/prompt-signals.sh"], "timeout": 5 }
         ]
       }
     ],
@@ -35,7 +36,7 @@
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/stop.sh"], "timeout": 1800, "statusMessage": "Running make check before finishing" }
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/stop.sh"], "timeout": 1800, "statusMessage": "Running make check and the review gate before finishing" }
         ]
       }
     ],

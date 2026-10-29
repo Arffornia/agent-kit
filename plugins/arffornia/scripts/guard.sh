@@ -9,8 +9,25 @@ read_input
 
 have jq || have python3 || exit 0
 
+# friction <why>: count blocks per rule and session; from the 2nd identical block on, ask the
+# agent to record harness feedback (the guard may be wrong, or something keeps leading here).
+friction() {
+  local g f k sid n
+  g="$(git -C "$(work_dir)" rev-parse --absolute-git-dir 2>/dev/null)" || return 0
+  mkdir -p "$g/claude-harness" 2>/dev/null || return 0
+  f="$g/claude-harness/guard-hits"
+  sid="$(json_get .session_id)"; [ -n "$sid" ] || sid=nosession
+  k="$sid $(printf '%s' "$1" | cut -c1-60 | hash_stdin | cut -c1-12)"
+  printf '%s\n' "$k" >> "$f" 2>/dev/null || return 0
+  n="$(grep -cF "$k" "$f" 2>/dev/null || echo 1)"
+  if [ "${n:-1}" -ge 2 ]; then
+    printf 'This guard has now blocked the same thing %s times in this session. If the rule is wrong for this case, or the task keeps leading here, record it with the arffornia:harness-feedback skill (evidence + proposed patch) before you finish.\n' "$n" >&2
+  fi
+}
+
 block() { # <why> <instead>
   printf 'Blocked by the arffornia guard: %s\nDo this instead: %s\n' "$1" "$2" >&2
+  friction "$1" || true
   exit 2
 }
 
@@ -215,7 +232,7 @@ case "$tool" in
     cmd="$(json_get .tool_input.command)"
     [ -n "$cmd" ] || exit 0
     # Split on ; && || | and newlines; also look inside $( ) roughly by dropping the markers.
-    segs="$(printf '%s\n' "$cmd" | tr ';|&`()' '\n\n\n\n\n\n' | sed 's/^[[:space:]]*\$*//')"
+    segs="$(printf '%s\n' "$cmd" | tr ';|&`()' '\n\n\n\n\n\n' | sed 's/^[[:space:]]*\$*//')"   # portable-ok (|& is data here)
     while IFS= read -r seg; do
       check_segment "$seg"
     done <<<"$segs"

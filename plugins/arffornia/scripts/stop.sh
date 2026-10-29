@@ -5,8 +5,15 @@
 #  2. Docs reminder: source changed on the branch but AGENTS.md / README.md / docs/ did not.
 #  3. Handoff reminder: work looks unfinished (uncommitted changes or open exec-plan items) and
 #     PROGRESS.md was not updated.
+#  R. Review gate (after the check passes): when the branch changes more than
+#     ARFFORNIA_REVIEW_MIN_LINES lines of code (default 10; docs, lockfiles and generated files
+#     excluded) and the current tree has no review stamp, block ONCE per tree state with "run the
+#     arffornia:review skill". The skill reviews with fresh subagents and writes the stamp
+#     (scripts/review-stamp.sh). Fixes after a review change the tree, so the next stop asks for a
+#     delta review; at most ARFFORNIA_REVIEW_MAX_ROUNDS rounds (default 3) per branch.
 # Reminders fire once per change set. Loop safety: with stop_hook_active=true the reminders are
-# skipped and the gate only re-runs if the tree changed since the last failure.
+# skipped, the check gate only re-runs if the tree changed since the last failure, and the review
+# gate never asks twice for the same tree.
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 read_input
@@ -63,6 +70,38 @@ $(tail -n 40 "$log")"
     fi
   fi
 fi
+
+# ---------- R. review gate ----------
+review_gate() {
+  [ "${ARFFORNIA_SKIP_REVIEW:-}" = "1" ] && return 0
+  local min="${ARFFORNIA_REVIEW_MIN_LINES:-10}" cap="${ARFFORNIA_REVIEW_MAX_ROUNDS:-3}"
+  local lines tree st branch round blocking
+  lines="$(code_lines_changed "$base")"
+  [ "${lines:-0}" -ge "$min" ] || return 0
+  tree="$(snapshot_tree)" || return 0
+  st="$sd/review-stamp"
+  branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo detached)"
+  round=0
+  [ "$(kv_get "$st" branch)" = "$branch" ] && round="$(kv_get "$st" round)"
+  case "$round" in ''|*[!0-9]*) round=0 ;; esac
+  if [ "$(kv_get "$st" tree)" = "$tree" ]; then
+    blocking="$(kv_get "$st" blocking)"
+    if [ "${blocking:-0}" != "0" ] && [ "$(cat "$sd/review-blocking-told" 2>/dev/null || true)" != "$tree" ]; then
+      printf '%s\n' "$tree" > "$sd/review-blocking-told"
+      feedback "The review of this tree confirmed $blocking blocking finding(s) and the tree has not changed since. Fix them (the next stop asks for a short delta review), or tell the user which ones you left open and why. Label each finding: bash \"\${CLAUDE_PLUGIN_ROOT}/scripts/review-stamp.sh\" label <id> fixed|wrong|intended|noise."
+    fi
+    return 0
+  fi
+  [ "$(cat "$sd/review-asked" 2>/dev/null || true)" = "$tree" ] && return 0   # asked once for this tree
+  printf '%s\n' "$tree" > "$sd/review-asked"
+  if [ "$round" -ge "$cap" ]; then
+    feedback "Review round cap reached ($round/$cap on $branch): the changes made after the last review are not independently reviewed. Say so in your report (\"not re-reviewed after round $round\") and suggest splitting the change if it keeps moving."
+  fi
+  local what="Run the arffornia:review skill now (in-session mode)"
+  [ "$round" -gt 0 ] && what="Run the arffornia:review skill now for round $((round+1))/$cap: a delta review of what changed since the last review (the skill reads the range from the stamp)"
+  block_with "Before handing back: this branch changes $lines lines of code and the current tree has no independent review. $what. It sends fresh finder and verifier subagents over the diff (they never saw this conversation), keeps only confirmed findings and writes a review stamp. Then fix the confirmed blocking and major findings, or explain in your report why not. If the user asked for no review, they can set ARFFORNIA_SKIP_REVIEW=1."
+}
+review_gate
 
 # Reminders never chain on a hook-driven continuation.
 [ "$active" = "true" ] && exit 0

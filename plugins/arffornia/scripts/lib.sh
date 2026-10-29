@@ -35,7 +35,7 @@ except Exception:
 # with_timeout <seconds> <cmd...>: run with a deadline, even without coreutils timeout.
 with_timeout() {
   local t="$1"; shift
-  if have timeout; then timeout "$t" "$@"; return $?; fi
+  if have timeout; then timeout "$t" "$@"; return $?; fi   # portable-ok (guarded)
   if have gtimeout; then gtimeout "$t" "$@"; return $?; fi
   "$@" &
   local pid=$!
@@ -88,7 +88,7 @@ cache_dir() {
 file_age_s() {
   local f="$1" m now
   [ -f "$f" ] || { echo 999999; return; }
-  m="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"
+  m="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"   # portable-ok
   now="$(date +%s)"
   echo $(( now - m ))
 }
@@ -131,6 +131,65 @@ emit_context() {
     esac
   fi
 }
+
+# snapshot_tree: git tree id of the whole work tree (tracked + untracked, minus ignored), without
+# touching the real index. Same content -> same id, so it is a cheap, exact "tree state" key.
+# Seeds a temp index from the real one so unchanged files are not re-hashed.
+snapshot_tree() {
+  local g idx t
+  g="$(git rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+  idx="$(mktemp "${TMPDIR:-/tmp}/arffornia-idx.XXXXXX")" || return 1
+  if [ -f "$g/index" ]; then cp "$g/index" "$idx" 2>/dev/null || :; else rm -f "$idx"; fi
+  t="$(GIT_INDEX_FILE="$idx" git add -A . >/dev/null 2>&1 && GIT_INDEX_FILE="$idx" git write-tree 2>/dev/null)" || t=""
+  rm -f "$idx"
+  [ -n "$t" ] || return 1
+  printf '%s' "$t"
+}
+
+# snapshot_commit [tree]: a dangling commit for the tree (parent HEAD), so `git diff A B` works
+# between two reviewed states. Never moves a ref.
+snapshot_commit() {
+  local t="${1:-}"
+  [ -n "$t" ] || t="$(snapshot_tree)" || return 1
+  git commit-tree "$t" -p HEAD -m "arffornia review snapshot" 2>/dev/null \
+    || git -c user.name=arffornia -c user.email=harness@localhost commit-tree "$t" -p HEAD -m "arffornia review snapshot"
+}
+
+# Paths that never need a code review on their own: docs, lockfiles, generated output, handoff.
+review_exempt_path() {
+  case "$1" in
+    *.md|docs/*|*/docs/*|LICENSE*|*.lock|package-lock.json|npm-shrinkwrap.json|pnpm-lock.yaml|gradle.lockfile) return 0 ;;
+    src/generated/*|*.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico|*.svg|*.ogg|*.wav) return 0 ;;
+  esac
+  return 1
+}
+
+# code_lines_changed <base>: added + deleted lines vs <base> (committed, staged, unstaged and
+# untracked), excluding review_exempt_path files and binaries.
+code_lines_changed() {
+  local base="$1" a d f n total=0
+  while IFS="$(printf '\t')" read -r a d f; do
+    [ -n "$f" ] || continue
+    case "$a" in ''|*[!0-9]*) continue ;; esac
+    review_exempt_path "$f" && continue
+    total=$(( total + a + d ))
+  done <<EOF_NUMSTAT
+$(git diff --numstat "$base" 2>/dev/null)
+EOF_NUMSTAT
+  while IFS= read -r f; do
+    [ -n "$f" ] && [ -f "$f" ] || continue
+    review_exempt_path "$f" && continue
+    n="$(wc -l < "$f" 2>/dev/null | tr -d ' ')"
+    case "$n" in ''|*[!0-9]*) n=0 ;; esac
+    total=$(( total + n ))
+  done <<EOF_UNTRACKED
+$(git ls-files -o --exclude-standard 2>/dev/null)
+EOF_UNTRACKED
+  printf '%s' "$total"
+}
+
+# kv_get <file> <key>: value of a `key=value` line (empty when missing).
+kv_get() { [ -f "$1" ] && sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1 || true; }
 
 # Makefile helpers.
 has_make_target() {

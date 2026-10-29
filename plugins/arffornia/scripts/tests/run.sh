@@ -137,6 +137,40 @@ printf '%s' "$OUT" | jq -e '.decision=="block"' >/dev/null && ok "stop_hook_acti
 rm FAIL; st true; [ -z "$OUT" ] && ok "stop passes once fixed" || ko "stop passes once fixed" "$OUT"
 touch FAIL; OUT="$(printf '{}' | ARFFORNIA_SKIP_CHECK=1 CLAUDE_PROJECT_DIR="$T/repo" bash "$S/stop.sh")"; [ -z "$OUT" ] && ok "ARFFORNIA_SKIP_CHECK=1 skips the gate" || ko "skip gate"; rm FAIL
 
+# ---------- review gate (stop.sh) + review-stamp.sh ----------
+RS() { CLAUDE_PROJECT_DIR="$T/repo" bash "$S/review-stamp.sh" "$@"; }
+git add -A >/dev/null; git commit -qm "wip: b" >/dev/null
+for i in 1 2 3 4 5 6 7 8 9 10 11 12; do echo "line $i" >> src/code.txt; done
+st; printf '%s' "$OUT" | jq -e '.decision=="block"' >/dev/null && printf '%s' "$OUT" | grep -q 'arffornia:review' \
+  && ok "review gate blocks a non-trivial unreviewed tree" || ko "review gate blocks" "$OUT"
+st true; [ -z "$OUT" ] || printf '%s' "$OUT" | jq -e '.decision!="block"' >/dev/null && ok "review gate asks only once per tree" || ko "review gate once" "$OUT"
+grep -q '^mode=full$' <<<"$(RS status)" && ok "review-stamp status: full mode before any review" || ko "status full" "$(RS status)"
+grep -q '^+line 12$' <<<"$(RS diff)" && ok "review-stamp diff includes untracked files" || ko "diff untracked" "$(RS diff | head)"
+printf '[{"id":"F1","severity":"major","lens":"correctness","path":"src/code.txt:3","title":"off by one"}]' > "$T/f.json"
+RS record --level medium --counts "Findings: 1 (blocking 0, major 1, minor 0, pre-existing 0) · risk: medium" --findings "$T/f.json" >/dev/null \
+  && ok "review-stamp record" || ko "record"
+grep -q '^reviewed=yes$' <<<"$(RS status)" && ok "status: reviewed after record" || ko "reviewed=yes" "$(RS status)"
+st; [ -z "$OUT" ] || ! printf '%s' "$OUT" | jq -e '.decision=="block"' >/dev/null && ok "review gate passes a stamped tree" || ko "stamped passes" "$OUT"
+echo "fix" >> src/code.txt
+grep -q '^mode=delta$' <<<"$(RS status)" && ok "status: delta mode after a change" || ko "delta mode" "$(RS status)"
+d="$(RS diff)"; printf '%s' "$d" | grep -q '^+fix$' && ! printf '%s' "$d" | grep -q '^+line 1$' && ok "delta diff only shows the change since the review" || ko "delta diff" "$d"
+st; printf '%s' "$OUT" | grep -q 'round 2/3' && ok "review gate asks for a delta review (round 2/3)" || ko "round 2" "$OUT"
+RS label F1 fixed "added bound check" >/dev/null && ok "review-stamp label" || ko "label"
+RS label F1 maybe >/dev/null 2>&1 && ko "label rejects unknown values" || ok "label rejects unknown values"
+RS record --level medium --counts "Findings: 1 (blocking 1, major 0, minor 0, pre-existing 0) · risk: medium" >/dev/null
+st; printf '%s' "$OUT" | grep -q '1 blocking finding' && ok "stamped tree with blocking findings: reminder" || ko "blocking reminder" "$OUT"
+grep -q '<!-- arffornia-review v1 ' <<<"$(RS summary)" && grep -q 'F1 · major · correctness .* \*\*fixed\*\*' <<<"$(RS summary)" \
+  && ok "summary has the marker and labelled findings" || ko "summary" "$(RS summary)"
+echo "fix 2" >> src/code.txt; RS record --level medium --counts "Findings: 0 · risk: medium" >/dev/null
+echo "fix 3" >> src/code.txt
+st; printf '%s' "$OUT" | grep -q 'round cap reached' && ! printf '%s' "$OUT" | jq -e '.decision=="block"' >/dev/null \
+  && ok "review round cap: tells, does not block" || ko "round cap" "$OUT"
+OUT="$(printf '{}' | ARFFORNIA_SKIP_REVIEW=1 CLAUDE_PROJECT_DIR="$T/repo" bash "$S/stop.sh")"; ! printf '%s' "$OUT" | grep -q 'arffornia:review' && ok "ARFFORNIA_SKIP_REVIEW=1 skips the review gate" || ko "skip review" "$OUT"
+rm -f src/code.txt; for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do echo "doc $i" >> docs-note.md; done
+rm -f "$(git rev-parse --absolute-git-dir)/claude-harness/review-stamp"
+st; ! printf '%s' "$OUT" | grep -q 'arffornia:review' && ok "docs-only changes need no review" || ko "docs exempt" "$OUT"
+rm -f docs-note.md; git reset -q --soft HEAD~1
+
 # ---------- handoff ----------
 printf '// TODO: handle the empty case\n' >> src/a.txt
 hook handoff.sh "{\"cwd\":\"$T/repo\",\"hook_event_name\":\"PreCompact\",\"trigger\":\"auto\"}"
@@ -160,8 +194,20 @@ done
 hook issue-context.sh '{"prompt":"work on #12"}'
 [ -z "$OUT" ] && [ "$RC" = 0 ] && ok "issue-context is a quiet no-op without gh" || ko "issue-context no-op" "$OUT"
 
+# ---------- friction signal (guard) ----------
+fr() { hook guard.sh "$(jq -nc --arg c "$T/repo" '{session_id:"s-1",tool_name:"Bash",cwd:$c,tool_input:{command:"git push --force origin feat/1-test"}}')"; }
+fr; ! printf '%s' "$ERR" | grep -q 'harness-feedback' && ok "guard: first block has no feedback hint" || ko "friction first" "$ERR"
+fr; printf '%s' "$ERR" | grep -q 'arffornia:harness-feedback' && ok "guard: repeated block suggests harness-feedback" || ko "friction repeat" "$ERR"
+
+# ---------- prompt-signals ----------
+ps() { hook prompt-signals.sh "$(jq -nc --arg p "$1" '{prompt:$p}')"; }
+ps "No, I said use make check, not npm test"; ctx | grep -q 'harness-feedback' && ok "prompt-signals: English correction" || ko "signals en" "$OUT"
+ps "Non, je t'ai dit de ne pas toucher au lockfile"; ctx | grep -q 'harness-feedback' && ok "prompt-signals: French correction" || ko "signals fr" "$OUT"
+ps "Add a settings button to the launcher"; [ -z "$OUT" ] && ok "prompt-signals: silent on a normal prompt" || ko "signals silent" "$OUT"
+ps "Fix the #nonce handling"; [ -z "$OUT" ] && ok "prompt-signals: no false hit inside words" || ko "signals word" "$OUT"
+
 # ---------- outside a repo ----------
-for s in session-start guard post-edit stop handoff issue-context; do
+for s in session-start guard post-edit stop handoff issue-context prompt-signals; do
   RC=0; printf '{"cwd":"/","tool_name":"Bash","tool_input":{"command":"ls"}}' | CLAUDE_PROJECT_DIR=/ bash "$S/$s.sh" >/dev/null 2>&1 || RC=$?
   [ "$RC" = 0 ] && ok "$s no-op outside a git repo" || ko "$s outside repo rc=$RC"
 done

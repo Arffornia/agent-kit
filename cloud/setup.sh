@@ -1,4 +1,5 @@
 #!/bin/bash
+# portability: linux-only (runs as root in the Ubuntu cloud VM; see docs/SETUP.md for macOS)
 # Arffornia cloud environment setup script (Claude Code on the web / cloud sessions).
 # Paste it into the environment's "Setup script" box (or "Choose file"). It runs as root on
 # Ubuntu 24.04 before Claude Code starts; when it finishes in under ~5 minutes the filesystem is

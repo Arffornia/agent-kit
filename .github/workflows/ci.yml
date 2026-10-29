@@ -1,0 +1,74 @@
+# agent-kit's own CI: deterministic checks only (no model, no secret).
+# The hook suite runs on Linux x86_64, Linux arm64 and macOS arm64 with macOS's own /bin/bash 3.2
+# and BSD tools, because that is what the hooks meet on a contributor's Mac.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hooks:
+    name: hooks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Use the system bash on macOS (3.2) and BSD tools
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p "$RUNNER_TEMP/sysbash"
+          ln -sf /bin/bash "$RUNNER_TEMP/sysbash/bash"
+          echo "$RUNNER_TEMP/sysbash" >> "$GITHUB_PATH"
+      - name: Tool versions
+        run: |
+          bash --version | head -n 1
+          uname -sm
+          jq --version; git --version; make --version | head -n 1
+      - name: Assert bash 3.2 on macOS
+        if: runner.os == 'macOS'
+        run: bash -c 'case "$BASH_VERSION" in 3.2.*) echo "bash $BASH_VERSION";; *) echo "expected bash 3.2, got $BASH_VERSION"; exit 1;; esac'
+      - name: Hook suite
+        run: bash plugins/arffornia/scripts/tests/run.sh
+      - name: Portability lint
+        run: bash plugins/arffornia/scripts/tests/portability.sh
+      - name: Skill helper scripts (when present)
+        run: |
+          if [ -f evals/run.py ]; then python3 evals/run.py check; else echo "no evals/ on this branch"; fi
+          if [ -f plugins/arffornia/skills/harness-audit/scripts/skill_lint.py ]; then
+            python3 plugins/arffornia/skills/harness-audit/scripts/skill_lint.py
+          fi
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: shellcheck
+        run: git ls-files -z '*.sh' 'templates/scripts/init' | xargs -0 shellcheck -S warning
+      - name: JSON
+        run: |
+          git ls-files -z '*.json' | xargs -0 -n 1 jq empty
+      - name: Plugin and marketplace manifests
+        run: |
+          npx -y @anthropic-ai/claude-code@2.1.312 plugin validate .
+          npx -y @anthropic-ai/claude-code@2.1.312 plugin validate plugins/arffornia
+      - name: actionlint (workflow templates)
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          git ls-files -z '.github/workflows/*.yml' 'templates/ci/*.yml' | xargs -0 ./actionlint -shellcheck=

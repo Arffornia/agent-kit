@@ -2,6 +2,7 @@
 # scripts/init — from a fresh clone to a green `make check` in one command.
 # Idempotent: safe to run again at any time. Usage: scripts/init [--no-check]
 # Edit the "repo-specific" block below; keep the rest as shipped by Arffornia/agent-kit.
+# Portable: macOS (bash 3.2, BSD tools, Apple Silicon) and Linux (x86_64, arm64).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,13 +18,23 @@ step() { # <label> <fix hint> <cmd...>: run a step; on failure say what failed a
 run_check=1; [ "${1:-}" = "--no-check" ] && run_check=0
 
 # ---------- toolchain checks (fail early with the fix) ----------
+os="$(uname -s)"; arch="$(uname -m)"
+pm() { # <brew formula> <apt package> <nix attr>: the install hint for this OS
+  case "$os" in
+    Darwin) printf 'macOS (%s): brew install %s, or nix develop (agent-kit docs/SETUP.md).' "$arch" "$1" ;;
+    *) if [ -e /etc/NIXOS ] || have nix; then printf 'nix: add pkgs.%s to the devShell, or nix shell nixpkgs#%s.' "$3" "$3"
+       else printf 'Debian/Ubuntu: sudo apt install %s.' "$2"; fi ;;
+  esac
+}
 need() { have "$1" || die "$1 is required. $2"; }
-need git  "Install git."
-need make "Install make (Debian/Ubuntu: apt install make; macOS: xcode-select --install)."
-[ -f composer.json ] && need php "Install PHP 8.3 (https://www.php.net/downloads)." && need composer "Install Composer (https://getcomposer.org/download/)."
-[ -f package.json ]  && need node "Install Node 22 LTS (https://nodejs.org/ or nvm install 22)." && need npm "npm ships with Node."
+need git  "$(pm git git git)"
+need make "$(pm make make gnumake) On macOS, xcode-select --install also provides it."
+[ -f composer.json ] && need php "Install PHP 8.3+. $(pm php php-cli php83)" && need composer "$(pm composer composer php83Packages.composer)"
+[ -f package.json ]  && need node "Install Node 22 LTS. $(pm node@22 nodejs nodejs_22)" && need npm "npm ships with Node."
 if [ -f gradlew ]; then
-  need java "Install a JDK (Temurin 21: https://adoptium.net/)."
+  need java "Install a JDK 21. $(pm "--cask temurin@21" openjdk-21-jdk temurin-bin-21)"
+  # macOS ships a /usr/bin/java stub that only prints "Unable to locate a Java Runtime".
+  java -version >/dev/null 2>&1 || die "java is a stub without a JDK. $(pm "--cask temurin@21" openjdk-21-jdk temurin-bin-21)"
   jv="$(java -version 2>&1 | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -1)"
   [ -n "$jv" ] && [ "$jv" -lt 17 ] && die "Java $jv found; this repo needs 17+ (21 for the mod)."
 fi

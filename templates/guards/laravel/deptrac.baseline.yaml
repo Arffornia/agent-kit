@@ -1,0 +1,5 @@
+# Generated: vendor/bin/deptrac analyse --formatter=baseline --output=deptrac.baseline.yaml
+# Lists the violations that existed when the guard was adopted. Remove lines as you fix them;
+# never add lines by hand to make a new violation pass (the review flags baseline growth).
+deptrac:
+  skip_violations: {}

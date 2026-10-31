@@ -1,0 +1,75 @@
+# pre-commit hooks (agent-kit template). Copy to the repo root as `.pre-commit-config.yaml`,
+# keep the block for your stack, delete the others, then:
+#   pipx install pre-commit   # or: pip install --user pre-commit
+#   pre-commit install        # runs on every `git commit`
+#   pre-commit run --all-files
+# Formatters run through the repo's own tools (local hooks), so versions come from the lockfile
+# and match `make fmt` and CI. Secrets: gitleaks scans staged changes before they become history.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        exclude: ^(k8s|charts)/.*templates/   # Helm templates are not plain YAML
+      - id: check-json
+        exclude: ^(tsconfig.*|\.vscode/.*)\.json$   # JSON with comments
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: detect-private-key
+
+  # --- Laravel / PHP (Arffornia_Website) -------------------------------------------------
+  - repo: local
+    hooks:
+      - id: pint
+        name: pint (Laravel formatter)
+        entry: vendor/bin/pint
+        language: system
+        types: [php]
+        pass_filenames: true
+
+  # --- Electron / Vue / TypeScript (Arffornia_Launcher_V.5.2, Nexus_*) --------------------
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: npx --no-install prettier --write --ignore-unknown
+        language: system
+        types_or: [javascript, ts, vue, json, css, scss, markdown, yaml]
+        pass_filenames: true
+      - id: eslint
+        name: eslint
+        entry: npx --no-install eslint --fix
+        language: system
+        types_or: [javascript, ts, vue]
+        pass_filenames: true
+
+  # --- Java / Gradle (Arffornia_Mods, Arffornia_Proxy) ------------------------------------
+  # No formatter is configured in these repos yet. When Spotless is added to build.gradle, use:
+  # - repo: local
+  #   hooks:
+  #     - id: spotless
+  #       name: spotless
+  #       entry: ./gradlew --no-daemon -q spotlessApply
+  #       language: system
+  #       types: [java]
+  #       pass_filenames: false
+
+  # --- Kubernetes / docs (infra, Noodle) -------------------------------------------------
+  # - repo: local
+  #   hooks:
+  #     - id: kustomize-build
+  #       name: kustomize build (all overlays)
+  #       entry: make lint
+  #       language: system
+  #       files: ^k8s/
+  #       pass_filenames: false

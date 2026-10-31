@@ -43,8 +43,9 @@ someone searching history in six months. Write for all three; the same holds for
 9. **Harness lessons.** If something in the harness got in the way (a misleading skill step,
    a guard that blocked a legitimate action, a missing rule), record it with
    `/arffornia:harness-feedback` before you finish.
-10. **Stop before pushing.** Pushing makes work public: Brian runs `/arffornia:publish <n>`,
-   or explicitly asks you to push. Write the handoff (`PROGRESS.md`) if the work continues.
+10. **Publish.** With every check green and the review clean, run `/arffornia:publish <n>`
+   yourself: it re-checks secrets, `make check` and the review stamp, then opens the PR. Write
+   the handoff (`PROGRESS.md`) if the work continues.
 
 PR body (for publish): What / Why (`Closes #<n>`) / How it was tested (commands and real
 output, verify evidence) / Risk & revert / Checklist. Labels: the issue's `type:` and `area:`.

@@ -40,7 +40,7 @@ except `publish`.
 | Skill | What it does |
 |---|---|
 | `work-ticket` | Issue → branch `<type>/<n>-slug` → implement + test → `make check` → PR with the template, labels and `Closes #n`. Also drafts issues with the label taxonomy (`type:`, `area:`, `priority:`, `effort:`; `agent-ready` only with acceptance criteria). Arffornia edition of Brian's `work-ticket`. |
-| `publish` | **Human-invoked only** (`disable-model-invocation: true`). Verifies the branch, tree and secrets, runs `make check`, fills the PR template, pushes and opens a **draft** PR. |
+| `publish` | Run by agents at the end of a task (or by Brian). Verifies the branch, tree and secrets, `make check`, the end-of-task review stamp and evidence, fills the PR template, pushes and opens the PR. Never merges: only approved chantiers merge, through the merge plan. |
 | `mc-gametest` | Write, run and debug NeoForge 1.21.1 GameTests in Arffornia_Mods (`platform` template, `@GameTestHolder`, fake backend, `runGameTestServer`, reading failures). Based on Arffornia_Mods PR #48. |
 | `modpack-change` | Add/upgrade/remove a mod in Arffornia_Provisioning: exact CurseForge/Modrinth/GitHub ids, client vs server side, duplicates, `make indexes`, one `content(<kind>):` PR never mixed with tooling. |
 | `review` | Risk-based review following the repo's `REVIEW.md`: depth by risk, `path:line` evidence for every finding, max 3 style remarks, findings count first. |
@@ -89,7 +89,9 @@ When you (or an agent) do the same multi-step action twice, it becomes a skill.
    it happened and the steps.
 2. Add `plugins/arffornia/skills/<name>/SKILL.md`: a `description` that says what and when,
    steps that can be followed literally, under ~150 lines. Add
-   `disable-model-invocation: true` if it pushes, publishes or deletes anything.
+   `disable-model-invocation: true` if it pushes, publishes or deletes anything, unless Brian
+   approved that exact side effect (then a `<!-- side-effect-approved: ... -->` line says who,
+   when and what, as in `publish`).
 3. `claude plugin validate .` and `claude plugin validate plugins/arffornia` pass.
 4. Add a row to the Skills table above. PR, Brian merges.
 

@@ -156,3 +156,7 @@ bash plugins/arffornia/scripts/tests/portability.sh    # bash 3.2 / BSD traps
 shellcheck -S warning plugins/arffornia/scripts/*.sh plugins/arffornia/scripts/tests/*.sh cloud/setup.sh codex/sync-skills.sh templates/scripts/init
 nix develop --command bash plugins/arffornia/scripts/tests/run.sh   # same, in the pinned nix toolchain
 ```
+
+## License
+
+[MIT](LICENSE), © Brian Perret and Arffornia contributors.

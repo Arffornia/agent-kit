@@ -20,13 +20,20 @@ git init -q --bare "$T/remote.git"; git init -q -b main "$T/clone"
 (cd "$T/clone" && git -c user.email=a@b -c user.name=a commit -q --allow-empty -m init \
   && git remote add origin "$T/remote.git" && git push -q origin main 2>/dev/null && git fetch -q origin \
   && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main)
+cat > "$T/bin/gh" <<'FAKE'
+#!/bin/sh
+# fake gh: GH_MODE=quiet -> no activity, busy -> one commit, fail -> error
+case "${GH_MODE:-quiet}" in quiet) echo 0 ;; busy) echo 1 ;; *) exit 1 ;; esac
+FAKE
+chmod +x "$T/bin/gh"
+export GH_BIN="$T/bin/gh"
 run() { ANTHROPIC_API_KEY=leak ARFFORNIA_AUTOMATION_STATE="$T/state" CLAUDE_BIN="$T/bin/claude" bash "$HERE/run-local.sh" "$@" "$T/clone" >"$T/out" 2>&1; RC=$?; }
 
-run daily-brief
-[ "$RC" = 0 ] && ok "daily-brief run exits 0" || ko "daily-brief rc" "$RC $(cat "$T/out")"
+run weekly-brief
+[ "$RC" = 0 ] && ok "weekly-brief run exits 0" || ko "weekly-brief rc" "$RC $(cat "$T/out")"
 grep -q 'model sonnet · max 120 turns / 2400 s' "$T/out" && ok "model, turns and a 40 min cap parsed" || ko "parse" "$(head -3 "$T/out")"
 grep -q 'BG=1 KEY=unset' "$T/out" && ok "foreground subagents, API key dropped" || ko "env" "$(cat "$T/out")"
-[ ! -d "$T/state/daily-brief.lock" ] && ok "lock released" || ko "lock left"
+[ ! -d "$T/state/weekly-brief.lock" ] && ok "lock released" || ko "lock left"
 [ "$(git -C "$T/clone" worktree list | wc -l | tr -d ' ')" = 1 ] && ok "worktree removed" || ko "worktree left"
 mkdir -p "$T/state/security-audit.lock"; echo 999999 > "$T/state/security-audit.lock/pid"
 run security-audit
@@ -38,6 +45,29 @@ run doc-gardener
 rm -rf "$T/state/doc-gardener.lock"
 run nope
 [ "$RC" != 0 ] && ok "unknown agent fails" || ko "unknown agent"
+
+# Skip gate: last-ok exists and nothing changed -> no model run
+echo 2026-10-01T00:00:00Z > "$T/state/weekly-brief.last-ok"
+GH_MODE=quiet run weekly-brief
+[ "$RC" = 0 ] && grep -q 'skipped: no activity since 2026-10-01' "$T/out" && ! grep -q 'BG=1' "$T/out" \
+  && ok "quiet scope skips the run before the model" || ko "skip gate" "$(cat "$T/out")"
+GH_MODE=busy run weekly-brief
+grep -q 'BG=1' "$T/out" && ok "activity runs the model" || ko "busy gate" "$(cat "$T/out")"
+[ "$(head -c 4 "$T/state/weekly-brief.last-ok")" = "$(date -u +%Y)" ] && ok "last-ok updated after a good run" || ko "last-ok" "$(cat "$T/state/weekly-brief.last-ok")"
+echo 2026-10-01T00:00:00Z > "$T/state/weekly-brief.last-ok"
+GH_MODE=fail run weekly-brief
+grep -q 'BG=1' "$T/out" && ok "an unreadable scope counts as activity" || ko "fail gate" "$(cat "$T/out")"
+echo 2026-10-01T00:00:00Z > "$T/state/weekly-brief.last-ok"
+ANTHROPIC_API_KEY=leak GH_MODE=quiet ARFFORNIA_AUTOMATION_STATE="$T/state" CLAUDE_BIN="$T/bin/claude" bash "$HERE/run-local.sh" --force weekly-brief "$T/clone" >"$T/out" 2>&1
+grep -q 'BG=1' "$T/out" && ok "--force ignores the gate" || ko "force" "$(cat "$T/out")"
+
+# Installers: systemd timers on Linux, launchd on macOS (dry run)
+ARFFORNIA_OS=Linux HOME="$T/home" bash "$HERE/install-local.sh" --dry-run >"$T/out" 2>&1
+grep -q 'OnCalendar=Fri \*-\*-\* 18:40:00 Europe/Paris' "$T/out" && grep -q 'Persistent=true' "$T/out" && ! grep -q 'deps-upgrade' "$T/out" \
+  && ok "systemd timers for enabled agents only" || ko "systemd" "$(head -40 "$T/out")"
+ARFFORNIA_OS=Darwin HOME="$T/home" bash "$HERE/install-local.sh" --dry-run --all >"$T/out" 2>&1
+grep -q '<key>Day</key><integer>10</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>35</integer>' "$T/out" \
+  && ok "launchd plists with day-of-month schedules" || ko "launchd" "$(grep -n StartCal -A1 "$T/out" | head)"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

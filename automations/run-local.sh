@@ -2,7 +2,8 @@
 # Run one automation prompt headless with the logged-in `claude` CLI, from cron, launchd or systemd.
 # No API key, no GitHub secret: it uses Brian's `claude` login (keychain) and `gh` login.
 #
-#   automations/run-local.sh <agent> [repo-dir]
+#   automations/run-local.sh [--force] <agent> [repo-dir]
+#     --force     run even when nothing changed since the last successful run (manual runs)
 #     <agent>     a prompt file in this folder, without .md (harness-feedback, doc-gardener, ...)
 #     [repo-dir]  a local clone the run starts in (default: the current directory); the run works in
 #                 a fresh detached worktree of its default branch, removed afterwards
@@ -10,12 +11,18 @@
 # Model and turn cap come from the prompt file ("Model: Opus", "Hard cap: ... / 400 turns").
 # A "Disallowed tools:" line in the prompt is passed to --disallowedTools (e.g. security-audit
 # forbids GitHub writes). The run is stopped at the prompt's hard cap ("2 h", "40 min"; default 3 h).
-# Env: ARFFORNIA_PERMISSION_MODE (default auto), ARFFORNIA_AUTOMATION_STATE (logs, lock),
-#      CLAUDE_BIN (default claude). Portable: macOS bash 3.2 + BSD tools, Linux.
+# Skip gate: when the agent ran successfully before ($STATE/<agent>.last-ok) and activity.sh finds
+# no commit, issue or PR since then in the agent's scope (schedule.tsv), the run is skipped before
+# the model starts: no tokens spent. A failed check counts as activity.
+# Env: ARFFORNIA_PERMISSION_MODE (default auto), ARFFORNIA_AUTOMATION_STATE (logs, lock, last-ok),
+#      ARFFORNIA_FORCE=1 (same as --force), ARFFORNIA_PLAYBOOK (agent-playbook checkout, for the
+#      skill-candidate scan), CLAUDE_BIN (default claude). Portable: macOS bash 3.2 + BSD tools, Linux.
 set -euo pipefail
 
 die() { printf 'run-local: %s\n' "$*" >&2; exit 1; }
-agent="${1:-}"; [ -n "$agent" ] || die "usage: run-local.sh <agent> [repo-dir]"
+force="${ARFFORNIA_FORCE:-0}"
+if [ "${1:-}" = "--force" ]; then force=1; shift; fi
+agent="${1:-}"; [ -n "$agent" ] || die "usage: run-local.sh [--force] <agent> [repo-dir]"
 repo="${2:-$PWD}"
 here="$(cd "$(dirname "$0")" && pwd -P)"
 prompt="$here/$agent.md"
@@ -61,11 +68,38 @@ if [ -n "${ANTHROPIC_API_KEY:-}" ] || [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ]; then
 fi
 
 git -C "$repo" rev-parse --git-dir >/dev/null 2>&1 || die "$repo is not a git clone"
+
+# Skip gate (no model, no tokens): nothing changed in the agent's scope since its last good run.
+started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+lastok="$state/$agent.last-ok"
+scope="$(awk -F '\t' -v a="$agent" '$1==a {print $5}' "$here/schedule.tsv" 2>/dev/null | head -n 1)"
+if [ "$force" != 1 ] && [ -s "$lastok" ] && [ "$scope" != self ]; then
+  since="$(head -n 1 "$lastok")"
+  if [ "$scope" = org ]; then set --; else set -- "${scope:-agent-kit}"; fi
+  act=0; "$here/activity.sh" "$since" "$@" >"$state/$agent.activity" 2>&1 || act=$?
+  if [ "$act" = 3 ]; then
+    printf 'run-local: %s skipped: no activity since %s (use --force to run anyway)\n' "$agent" "$since" >&2
+    exit 0
+  fi
+fi
 git -C "$repo" fetch -q origin 2>/dev/null || printf 'run-local: fetch failed, using the local refs\n' >&2
 def="$(git -C "$repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 wt="$state/wt-$agent-$stamp"
 git -C "$repo" worktree add -q --detach "$wt" "$def" || die "cannot create a worktree from $def"
+
+# Deterministic transcript scan for "done twice -> skill" (harness-feedback reads the result).
+if [ "$agent" = harness-feedback ]; then
+  scan=""
+  for d in "${ARFFORNIA_PLAYBOOK:-}" "$HOME/.local/share/agent-playbook"; do
+    if [ -n "$d" ] && [ -f "$d/skills/propose-skill/scripts/repeat_scan.py" ]; then scan="$d/skills/propose-skill/scripts/repeat_scan.py"; break; fi
+  done
+  if [ -n "$scan" ] && command -v python3 >/dev/null 2>&1; then
+    sargs=""; [ -s "$lastok" ] && sargs="--since $(head -c 10 "$lastok")"
+    # shellcheck disable=SC2086
+    python3 -I "$scan" $sargs >"$wt/.skill-candidates.md" 2>/dev/null || rm -f "$wt/.skill-candidates.md"
+  fi
+fi
 
 log="$state/$agent-$stamp.log"
 printf 'run-local: %s · model %s · max %s turns / %s s · %s @ %s · log %s\n' "$agent" "$model" "$turns" "$cap_s" "$repo" "$def" "$log" >&2
@@ -81,4 +115,5 @@ pid=$!
 watchdog=$!
 wait "$pid" || rc=$?
 tail -n 20 "$log"
+if [ "$rc" = 0 ]; then printf '%s\n' "$started" > "$lastok"; fi
 exit "$rc"

@@ -7,17 +7,42 @@ GitHub secret, an Anthropic API key or an OAuth token in GitHub**, and none runs
 Every prompt has the same contract: a goal, its inputs, a bookmark, guardrails, an output format,
 the model to use, and a "lethal trifecta" card.
 
-| Agent | Schedule | Model | Destination (the only thing it writes) | Typical run | Hard cap |
+Cadence rule (Brian, 2026-10-31): the brief is **weekly, Friday evening**, so it is ready on
+Saturday morning; every other recurring task is **monthly** (none is critical on a personal
+project), and **every run is skipped when nothing changed** since the last one. Full schedule
+in [`schedule.tsv`](schedule.tsv) (one source for cloud, systemd and launchd).
+
+| Agent | Schedule (Europe/Paris) | Model | Destination (the only thing it writes) | Typical run | Hard cap |
 |---|---|---|---|---|---|
-| [`daily-brief`](daily-brief.md) | weekdays 07:40 Europe/Paris | Sonnet | the run report (private to Brian) | 10 min | 40 min |
-| [`harness-feedback`](harness-feedback.md) | weekly, Monday | Opus | one draft PR in agent-kit from open `harness-feedback` issues; comments on them | 30 min | 2 h |
-| [`doc-gardener`](doc-gardener.md) | weekly, Monday | Sonnet | one draft PR per repo, `docs/garden-<date>` | 30 min | 2 h |
-| [`deps-upgrade`](deps-upgrade.md) | weekly, Tuesday | Opus | one draft PR per library, `deps/<lib>-<version>` | 45 min | 3 h |
-| [`review-feedback`](review-feedback.md) | weekly, Friday | Sonnet | one draft PR in agent-kit (`evals/` cases + metrics from in-session review markers) | 20 min | 1 h |
-| [`harness-audit`](harness-audit.md) | monthly, 1st | Opus | one issue in agent-kit, `Harness audit YYYY-MM` | 40 min | 3 h |
+| [`weekly-brief`](weekly-brief.md) | weekly, Friday 18:40 | Sonnet | the run report (private to Brian) | 15 min | 40 min |
+| [`review-feedback`](review-feedback.md) | monthly, 1st | Sonnet | one draft PR in agent-kit (`evals/` cases + metrics from in-session review markers) | 20 min | 1 h |
+| [`harness-feedback`](harness-feedback.md) | monthly, 4th | Opus | one draft PR in agent-kit from open `harness-feedback` issues, with a "Skill candidates" section; comments on them | 30 min | 2 h |
+| [`doc-gardener`](doc-gardener.md) | monthly, 8th | Sonnet | one draft PR per repo, `docs/garden-<date>` | 30 min | 2 h |
+| [`deps-upgrade`](deps-upgrade.md) | monthly, 10th | Opus | one draft PR per library, `deps/<lib>-<version>` | 45 min | 3 h |
+| [`harness-audit`](harness-audit.md) | monthly, 15th | Opus | one issue in agent-kit, `Harness audit YYYY-MM` | 40 min | 3 h |
 | [`security-audit`](security-audit.md) | monthly, 2nd | Opus | private report only (hygiene issues drafted for Brian to file; GitHub writes disallowed) | 60 min | 4 h |
 | [`onboarding-audit`](onboarding-audit.md) | monthly, 3rd | Sonnet | one `type: docs` issue per blocker | 60 min | 4 h |
 | [`quality-score`](quality-score.md) | monthly, 5th | Sonnet | one draft PR per repo updating `QUALITY_SCORE.md` | 40 min | 3 h |
+| [`practice-watch`](practice-watch.md) | monthly, 20th | Opus | up to three draft PRs in agent-playbook (generic) or agent-kit (org): new practices into the skill layers | 40 min | 2 h |
+
+Start with `weekly-brief`, `harness-feedback` and `review-feedback` (Brian's choice); add the
+others after two good runs each (`enabled` column).
+
+## Skip when nothing changed
+A month without work must not cost four empty runs.
+- **Local runs** (`run-local.sh`): before the model starts, [`activity.sh`](activity.sh) asks
+  GitHub (REST, one call per repo) for commits, issues or PRs since the agent's last good run
+  (`~/.local/state/arffornia-automations/<agent>.last-ok`). Nothing: the run is skipped and costs
+  no tokens. A failed call counts as activity.
+- **Cloud scheduled tasks**: each prompt starts with the same check ("Gate" section) and stops
+  after one line when nothing changed, which costs a few cheap turns.
+- `practice-watch` watches the outside world, so it skips on its own rule (ran less than 25 days
+  ago, or no Arffornia activity for 60 days).
+
+## Run everything now
+- Local: `automations/run-all.sh ~/src/agent-kit` forces every enabled agent now, one after the
+  other (`--if-changed` keeps the skip gate, `--all` includes agents not enabled yet).
+- Cloud: claude.ai/code/routines → each task → **Run now**.
 
 Why these models: agent-kit [docs/MODELS.md](../docs/MODELS.md).
 
@@ -75,7 +100,7 @@ laptop closed, start from fresh clones, and need nothing on any machine).
 3. Repositories: the Arffornia repos the prompt reads (cross-repo agents: all of them; the run
    clones each one). Environment: the `arffornia` cloud environment from agent-kit
    `cloud/setup.sh`, network **Trusted**. Remove every connector the agent does not need (most
-   need none; `daily-brief` none, its report is the run itself).
+   need none; `weekly-brief` none, its report is the run itself).
 4. Trigger: **Schedule**, the time from the table a few minutes off the hour (e.g. 07:40, not
    07:00). Save, then **Run now** once and read the transcript.
 5. What it can do: runs start in auto mode; anything that matches the repos' ask rules waits for
@@ -93,19 +118,28 @@ Claude desktop app → **Code** → **Scheduled** → **New task** → **Local**
 the folder (a checkout of the repo, or a parent with all of them), the model and the schedule.
 Permissions are set per task: start with "ask", switch to auto-approve after two good runs.
 
-### Local `claude -p` from a scheduler
-[`run-local.sh`](run-local.sh) (tests: `bash automations/tests/run-local.test.sh`) runs one prompt headless in a fresh worktree of a local clone,
-with the model from the prompt file, a turn cap, and the transcript saved under
-`~/.local/state/arffornia-automations/`:
+### Local `claude -p` from a scheduler (Linux and macOS)
+[`run-local.sh`](run-local.sh) (tests: `bash automations/tests/run-local.test.sh`) runs one
+prompt headless in a fresh worktree of a local clone, with the model from the prompt file, a
+turn cap, the skip gate, and the transcript saved under `~/.local/state/arffornia-automations/`.
+It uses the logged-in `claude` CLI (`claude /login` once); never set `ANTHROPIC_API_KEY` for it.
 
 ```bash
-automations/run-local.sh harness-feedback ~/src/agent-kit           # one run now
-# cron (Linux, or macOS with cron enabled):   crontab -e
-35 5 * * 1  $HOME/src/agent-kit/automations/run-local.sh harness-feedback $HOME/src/agent-kit
+automations/run-local.sh harness-feedback ~/src/agent-kit           # one run now (skip gate on)
+automations/run-local.sh --force weekly-brief ~/src/agent-kit       # ignore the gate
+automations/install-local.sh --dry-run                              # see what would be installed
+automations/install-local.sh                                        # install the enabled agents
+automations/install-local.sh --uninstall
 ```
-On macOS prefer launchd: [`launchd/io.arffornia.automation.plist`](launchd/io.arffornia.automation.plist)
-is a template (copy to `~/Library/LaunchAgents/`, set the agent and paths, `launchctl load`).
-It uses the logged-in `claude` CLI (`claude /login` once); never set `ANTHROPIC_API_KEY` for it.
+- **Linux, including NixOS**: systemd **user** timers in `~/.config/systemd/user/`
+  (`arffornia-<agent>.timer` + the [`arffornia-automation@.service`](systemd/arffornia-automation@.service)
+  template). `Persistent=true`: a run missed while the machine was off happens at the next boot,
+  which suits a homelab or laptop that is not on all the time. For runs without a graphical
+  login, enable lingering once: `loginctl enable-linger $USER`. Check with
+  `systemctl --user list-timers 'arffornia-*'`. On NixOS the units can also be declared in
+  home-manager (`systemd.user.timers`); the generated files show the exact values.
+- **macOS**: launchd agents in `~/Library/LaunchAgents/io.arffornia.<agent>.plist`, from the
+  [`launchd`](launchd/io.arffornia.automation.plist) template (local time; missed runs happen at wake).
 
 ## Measuring them
 Each output carries its bookmark and a footer `agent:<name> run:<date> turns:<n> duration:<m>`.

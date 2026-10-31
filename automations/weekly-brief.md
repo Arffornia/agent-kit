@@ -1,9 +1,19 @@
-# daily-brief
+# weekly-brief
 
-Schedule: weekdays 07:40 Europe/Paris. Model: Sonnet (see agent-kit docs/MODELS.md). Normal run: ~10 min / 30 turns. Hard cap: 40 min / 120 turns.
+Schedule: weekly, Friday 18:40 Europe/Paris (ready for Saturday morning). Model: Sonnet (see agent-kit docs/MODELS.md). Normal run: ~15 min / 40 turns. Hard cap: 40 min / 120 turns.
+
+## Gate: skip when nothing changed (do this first)
+Find `since`: your newest bookmark (see "Bookmark"), else one period back. Then check activity
+in the repos this agent reads, with one cheap call per repo:
+`gh api "repos/Arffornia/$R/commits?since=$SINCE&per_page=1" --jq length` and
+`gh api "repos/Arffornia/$R/issues?since=$SINCE&state=all&per_page=1" --jq length` (issues and PRs).
+All zero: write only `Skipped: no activity since <since>` plus your previous bookmark line, and
+stop. A call that fails counts as activity (unreadable is not empty). Local runs do this check in
+`run-local.sh` before starting the model; `ARFFORNIA_FORCE=1` or a manual run skips the gate.
 
 ## Goal
-Give Brian, in under two minutes of reading, what needs him today across the Arffornia repos:
+Give Brian, in under three minutes of reading on Saturday morning, what needs him this weekend
+across the Arffornia repos:
 PRs ready to merge, red CI, new issues, decisions waiting. You report; you change nothing.
 
 ## Inputs
@@ -21,9 +31,8 @@ gh api "repos/Arffornia/$R/issues?labels=needs-decision&state=open"
 ```
 
 ## Bookmark
-Read the footer of your previous report (`<!-- bookmark:daily-brief {"since":"..."} -->`) if the
-scheduled-task history is available; otherwise use the previous weekday 07:00 Europe/Paris
-(Monday: Friday 07:00). New issues are those created after `since`. End your report with the new
+Read the footer of your previous report (`<!-- bookmark:weekly-brief {"since":"..."} -->`) if the
+scheduled-task history is available; otherwise use the previous Friday 18:00 Europe/Paris. New issues are those created after `since`. End your report with the new
 bookmark (`since` = the time you started).
 
 ## Classify
@@ -44,7 +53,7 @@ bookmark (`since` = the time you started).
 
 ## Output (exactly this shape; full links; one line each; omit empty sections except "Could not read")
 ```
-Daily brief · <weekday> <YYYY-MM-DD> · since <since>
+Weekly brief · <YYYY-MM-DD> · since <since>
 
 Ready to merge (n)
 - https://github.com/Arffornia/<repo>/pull/<n> — <title> · <checks> · review 0 blocking
@@ -61,9 +70,11 @@ Stale PRs (n)
 Could not read
 - <repo or endpoint>: <error>   (or "none")
 
+Review stack: <cards waiting> cards, about <minutes> min (soft review load, not a cap)
+Dormant proposals resurfaced: <proposal issues or cards with no activity for 30+ days, never closed>
 Suggested first action: <one sentence>
-<!-- bookmark:daily-brief {"since":"<start time ISO>"} -->
-agent:daily-brief run:<date> turns:<n> duration:<m>
+<!-- bookmark:weekly-brief {"since":"<start time ISO>"} -->
+agent:weekly-brief run:<date> turns:<n> duration:<m>
 ```
 
 ## Lethal trifecta

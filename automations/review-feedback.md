@@ -1,7 +1,16 @@
 # review-feedback
 
-Schedule: weekly, Friday 06:05 Europe/Paris. Model: Sonnet (reading and counting; see agent-kit
+Schedule: monthly, 1st, 05:05 Europe/Paris. Model: Sonnet (reading and counting; see agent-kit
 docs/MODELS.md). Normal run: ~20 min / 60 turns. Hard cap: 1 h / 240 turns.
+
+## Gate: skip when nothing changed (do this first)
+Find `since`: your newest bookmark (see "Bookmark"), else one period back. Then check activity
+in the repos this agent reads, with one cheap call per repo:
+`gh api "repos/Arffornia/$R/commits?since=$SINCE&per_page=1" --jq length` and
+`gh api "repos/Arffornia/$R/issues?since=$SINCE&state=all&per_page=1" --jq length` (issues and PRs).
+All zero: write only `Skipped: no activity since <since>` plus your previous bookmark line, and
+stop. A call that fails counts as activity (unreadable is not empty). Local runs do this check in
+`run-local.sh` before starting the model; `ARFFORNIA_FORCE=1` or a manual run skips the gate.
 
 ## Goal
 Turn what happened to in-session review findings into measurements and eval cases, so the
@@ -23,7 +32,7 @@ or `noise`, and `/arffornia:publish` writes a block into the PR body that ends w
 
 ## Process
 1. Collect findings keyed by `(round, id)` (every round numbers from F1): repo, PR link, round, id, severity, lens, label (`unlabelled` when missing), rounds, risk level.
-2. Metrics for the week and the trailing 4 weeks: useful rate = fixed / labelled; wrong rate; noise
+2. Metrics for the month and the trailing 3 months: useful rate = fixed / labelled; wrong rate; noise
    rate; per lens and per severity; unlabelled share; rounds per PR; PRs without a review block.
 3. Eval cases: each `wrong` or `noise` finding → a case expecting "not reported" (input = the PR diff
    at the reviewed state + the finding text); each `fixed` blocking/major finding → a case expecting
@@ -34,7 +43,7 @@ or `noise`, and `/arffornia:publish` writes a block into the PR body that ends w
 
 ## Bookmark
 `<!-- bookmark:review-feedback {"since":"<ISO time>"} -->` in the newest PR labelled
-`automation:review-feedback` in agent-kit. None: look back 7 days.
+`automation:review-feedback` in agent-kit. None: look back one month.
 
 ## Guardrails
 - Write only: branch `claude/review-feedback-<YYYY-MM-DD>` in Arffornia/agent-kit with new files under
@@ -47,7 +56,7 @@ or `noise`, and `/arffornia:publish` writes a block into the PR body that ends w
 
 ## Output (PR body + run report)
 ```
-review-feedback · week of <date>
+review-feedback · month of <date>
 Labelled <n>/<total>: fixed <a> · wrong <b> · intended <c> · noise <d> · useful rate <x> %
 By lens: correctness <..> · security <..> · rules-tests <..>
 Rounds per PR p50 <r> · code PRs merged without a review block: <k>

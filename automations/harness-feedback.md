@@ -1,12 +1,21 @@
 # harness-feedback
 
-Schedule: weekly, Monday 05:35 Europe/Paris. Model: Opus (it edits hooks, skills and rules every
+Schedule: monthly, 4th, 05:35 Europe/Paris. Model: Opus (it edits hooks, skills and rules every
 later session runs on; see agent-kit docs/MODELS.md). Normal run: ~30 min / 100 turns.
 Hard cap: 2 h / 400 turns.
 
+## Gate: skip when nothing changed (do this first)
+Find `since`: your newest bookmark (see "Bookmark"), else one period back. Then check activity
+in the repos this agent reads, with one cheap call per repo:
+`gh api "repos/Arffornia/$R/commits?since=$SINCE&per_page=1" --jq length` and
+`gh api "repos/Arffornia/$R/issues?since=$SINCE&state=all&per_page=1" --jq length` (issues and PRs).
+All zero: write only `Skipped: no activity since <since>` plus your previous bookmark line, and
+stop. A call that fails counts as activity (unreadable is not empty). Local runs do this check in
+`run-local.sh` before starting the model; `ARFFORNIA_FORCE=1` or a manual run skips the gate.
+
 ## Goal
 Turn the open `harness-feedback` issues in Arffornia/agent-kit into **one draft PR** that applies
-the proposed patches that are still valid, with tests, so the harness improves every week without
+the proposed patches that are still valid, with tests, so the harness improves every month without
 Brian collecting the lessons by hand. Agents open these issues with `/arffornia:harness-feedback`
 when a user corrects how they work, a guard fires repeatedly, a skill misfires, or they find
 friction or a better way.
@@ -40,7 +49,16 @@ friction or a better way.
    `python3 plugins/arffornia/skills/harness-audit/scripts/skill_lint.py`, `python3 evals/run.py check`.
    Red: fix or drop that patch; never open a red PR.
 5. Run the in-session review on your own diff (`/arffornia:review`) and act on it.
-6. One draft PR: `fix(harness): weekly harness feedback <YYYY-MM-DD>`, body with one section per
+6. **Skill candidates ("done twice -> skill").** Collect issues labelled `skill-candidate`, and
+   pairs of issues that describe the same manual procedure or the same correction from Brian. When
+   the run is local, also read `.skill-candidates.md` at the worktree root if present: the
+   deterministic transcript scan `run-local.sh` writes before the model starts (agent-playbook
+   `propose-skill/scripts/repeat_scan.py`; you never read transcripts yourself). For each
+   candidate with two real occurrences, more than ~3 steps and no existing skill or `make` target,
+   add a row to a "Skill candidates" section of the PR body: name, occurrences (links), what it
+   saves, layer (generic base `agent-playbook`, org layer `agent-kit`, or one repo). Do not write
+   the skill in this run; an agent runs `propose-skill` on the ones Brian keeps.
+7. One draft PR: `fix(harness): monthly harness feedback <YYYY-MM-DD>`, body with one section per
    issue (`Refs #n`, what changed, the test), the skipped issues and why, and the check output.
    Use `Refs`, not `Closes`: Brian decides when an issue is done.
 

@@ -32,6 +32,10 @@ Architecture: https://arffornia.github.io/docs/ · Related: `<Repo>` (<why>), `<
   PR body: What / Why / How it was tested / Risk & revert.
 - Never merge, tag, release, delete branches, push to the default branch or touch secrets.
 - Do not replace the owner's libraries (Nexus_*, launcher modules) with third-party ones: improve them.
+- **Repo names** follow the org convention: `Arffornia_<Name>` for Arffornia projects
+  (`Arffornia_Website`, `Arffornia_Assets`, `Arffornia_Playtest`), `Nexus_<Name>` for the shared
+  libraries. Existing other names (`docs`, `agent-kit`, `ops`, `.github`, `keycloak-theme-arffornia`,
+  `minecraft-oauth`) stay as they are; never rename a repo. Brian creates repos; propose the name.
 - `needs-decision` issues and design choices belong to the maintainer: ask, do not choose.
 - Unfixed security weaknesses: neutral wording in public issues and PRs, no exploit details.
 - Finish with evidence (command + result), not claims. Update `PROGRESS.md` before you stop

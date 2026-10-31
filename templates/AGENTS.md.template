@@ -1,46 +1,71 @@
 # AGENTS.md — <Repo name>
 
-Guide for AI agents and newcomers. Keep it under 150 lines: a map, not a manual.
-`CLAUDE.md` contains only `@AGENTS.md`.
+A map, not a manual: at most 100 lines. Each line points to where the detail lives.
+`CLAUDE.md` contains only `@AGENTS.md`. Codex and other agents read this file directly.
 
 ## Purpose
-<One paragraph: what this repo is and where it sits in Arffornia (link https://arffornia.github.io/docs/).>
+<One or two sentences: what this repo is, who uses it, where it sits in Arffornia.>
+Architecture: https://arffornia.github.io/docs/ · Related: `<Repo>` (<why>), `<Repo>` (<why>).
 
-## Repo map
+## Map
 | Path | What |
 |---|---|
-| `<dir or file>` | <one line> |
+| `<dir>/` | <one line> |
+| `<file>` | <one line> |
+| `docs/exec-plans/active/` | Multi-session work in progress (goal, plan, decision log) |
+| `PROGRESS.md` | Handoff between sessions: current state, next step |
 
 ## Commands
-- `make check` — everything CI runs (lint + typecheck + tests + build). Must pass before a PR.
-- `make test`, `make build`, `make lint`, `make fmt` (if a formatter exists), `make run`.
-- <Resource limits, e.g. Gradle: `--no-daemon -Dorg.gradle.jvmargs=-Xmx2g`, one build at a time.>
+| Command | When |
+|---|---|
+| `scripts/init` | Fresh clone to green in one command |
+| `make check` | Everything CI runs. Must pass before you say "done" (the Stop hook enforces it) |
+| `make test` / `make lint` / `make fmt` / `make build` | The pieces of `check` |
+| `make lint FILE=<path>` / `make fmt FILE=<path>` | One file (the post-edit hook uses these) |
+| `<make run / make gametest / make e2e>` | <what it proves> |
 
-## Conventions
-- English everywhere (code, comments, logs, docs, commits, PRs). Player text through i18n, en + fr.
-- Conventional Commits (`fix(<area>): ...`). Branches `<type>/<issue>-<slug>`.
-- One PR per issue, `Closes #n`, body: What / Why / How it was tested / Risk & revert.
-- Decisions a future reader would question go in an ADR (`docs/adr/`).
+<Resource limits, e.g. Gradle: `--no-daemon -Dorg.gradle.jvmargs=-Xmx2g`, one build at a time.>
 
-## Hard rules
-- No secrets in the repo; placeholders only.
-- Never merge, tag, release, or push to the default branch; open PRs.
-- Do not replace the owner's libraries (Nexus_*) with third-party ones.
-- `needs-decision` issues belong to the maintainer: ask, do not choose.
-- Unfixed security weaknesses: neutral issue/PR wording, no exploit details.
-- The same manual action twice: propose a skill in `Arffornia/agent-kit`.
+## Rules
+- English for code, comments, logs, docs, commits and PRs. Player-facing text through i18n (en + fr).
+- Branch `<type>/<issue>-<slug>`; Conventional Commits; one PR per issue with `Closes #n`;
+  PR body: What / Why / How it was tested / Risk & revert.
+- Open your PR yourself once `make check` passes and the end-of-task review is clean. Merge,
+  tag, release or deploy only inside a chantier the maintainer approved on the review stack
+  (the orchestrator runs the chantier merge plan); never push to the default branch, delete
+  branches or touch secrets. Workflow: agent-kit `docs/WORKFLOW.md`.
+- Live project state (chantiers, decisions, next steps) is in the private ops repo
+  `Arffornia/ops` `STATE.md`; read it at the start of a session (`resume` skill) when you can.
+- Do not replace the owner's libraries (Nexus_*, launcher modules) with third-party ones: improve them.
+- `needs-decision` issues and design choices belong to the maintainer: ask, do not choose.
+- Unfixed security weaknesses: neutral wording in public issues and PRs, no exploit details.
+- Finish with evidence (command + result), not claims. Update `PROGRESS.md` before you stop
+  when work is unfinished.
+- **Review before handing back**: a non-trivial change gets `/arffornia:review` (fresh finder and
+  verifier subagents, confirmed findings only). The Stop hook asks once per tree; there is no AI
+  review in CI.
+- **Improve the harness**: when the user corrects how you work, a guard or hook fires again and
+  again, a skill misfires, or you hit friction or find a better way, record it with
+  `/arffornia:harness-feedback` (issue in Arffornia/agent-kit, evidence + proposed patch).
+- **Learning cards**: when you do or find something genuinely state of the art that the
+  maintainer would want to learn, draft a card with `/arffornia:learning-card`.
+- **Reporting**: every PR, issue, commit, artifact or page you mention to a human is a full
+  clickable URL (`https://github.com/Arffornia/<repo>/pull/<n>`) with a one-line summary,
+  grouped and ordered by what the human should do (review/merge, decide, FYI). Never
+  "I opened the PR" without the link.
+- Mechanical rules every change follows: `GOLDEN_PRINCIPLES.md`.
 
-## Testing strategy
-<Unit / integration / E2E for this stack, and what "tested" means for a PR here.>
+## Where knowledge lives
+| Need | Look in |
+|---|---|
+| Conventions for the files you are editing | `.claude/rules/*.md` (loaded automatically by path) |
+| How to review, what is risky | `REVIEW.md`, `risk.yml` (read by `/arffornia:review`) |
+| Why something is the way it is | `docs/adr/` |
+| Quality per area and known gaps | `QUALITY_SCORE.md` |
+| Workflows (ticket → PR, publish, tests) | `/arffornia:<skill>` from the agent-kit plugin |
+| Current work and next step | `PROGRESS.md`, `docs/exec-plans/active/` |
 
 ## Gotchas
-- <Things that surprised the last person, with issue links.>
-
-## AI setup
-- Plugin `arffornia@agent-kit` (enabled in `.claude/settings.json`): `/arffornia:work-ticket`,
-  `/arffornia:review`, `/arffornia:publish` (human only), and the stack skills.
-- Hooks: formatter after edits (`make fmt`), Stop blocked while `make check` fails, Stop reminder
-  when source changed but docs did not. `REVIEW.md` drives AI review.
-
-## Related repos
-- `<Repo>` — <why it matters here>.
+- <A thing that surprised the last person, one line, with the issue link.>
+- <Generated files: `<path>` comes from `make <target>`; never edit it by hand.>
+- <Network-only tests, slow builds, flaky areas, with the workaround.>

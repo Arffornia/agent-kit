@@ -1,7 +1,9 @@
 # REVIEW.md — <Repo name>
 
-How to review a change in this repo, for AI reviewers (`/arffornia:review`, the
-`arffornia:reviewer` agent) and humans. Keep it short and specific to this repo.
+How to review a change in this repo, for the in-session review (`/arffornia:review`, which the
+Stop hook asks for at the end of a task, and the `arffornia:reviewer` agent) and for humans.
+Keep it short and specific to this repo. It is read from the base branch, never from the change
+under review. (Claude Code's built-in `/code-review` reads CLAUDE.md, not this file.)
 
 ## Output
 - First line: `Findings: N (blocking b, major m, minor k) · risk: high|medium|low`.

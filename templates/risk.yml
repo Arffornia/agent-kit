@@ -1,0 +1,43 @@
+# Review depth by path. Read by the in-session review (`/arffornia:review`, run at the end of a task) and by humans.
+# First matching rule wins (top to bottom). Globs are relative to the repo root.
+# depth: light = skim, docs and wording; standard = every line, tests cover it;
+#        deep = every line, trace callers, try to break it; security = deep + threat review
+#        (input validation, authz, secrets, supply chain), never auto-approved.
+version: 1
+default: standard
+
+rules:
+  - name: ci-and-release
+    depth: deep
+    security: true
+    paths: [".github/workflows/**", ".github/actions/**", "Dockerfile*", "*.Dockerfile", "release*", "scripts/release*"]
+  - name: auth-and-secrets
+    depth: deep
+    security: true
+    paths: ["**/auth/**", "**/*Auth*", "**/*auth*", "**/*Token*", "**/*token*", "config/sanctum.php", "config/auth.php",
+            "app/Http/Middleware/**", "**/msAuth*", "**/safeStorage*", "**/*Secret*", "**/*secret*"]
+  - name: network-boundary
+    depth: deep
+    security: true
+    paths: ["routes/**", "app/Http/Controllers/**", "app/Http/Requests/**", "src/main/ipcHandlers/**", "src/preload/**",
+            "**/network/**", "**/payload/**", "**/*Packet*", "**/*Api*.java", "**/api/**", "src/**/download*", "src/**/*Download*"]
+  - name: infra
+    depth: deep
+    security: true
+    paths: ["k8s/**", "charts/**", "terraform/**", "**/kustomization.yaml", "**/values*.yaml", "helm/**"]
+  - name: money-and-rewards
+    depth: deep
+    paths: ["**/*Shop*", "**/*Vote*", "**/*Reward*", "**/shop/**", "database/migrations/**"]
+  - name: generated
+    depth: light
+    paths: ["package-lock.json", "composer.lock", "src/generated/**", "docs/assets/diagrams/**", "config/*/index.json"]
+  - name: tests
+    depth: standard
+    paths: ["tests/**", "test/**", "src/test/**", "**/*.test.ts", "**/*Test.java", "**/*GameTests*.java"]
+  - name: docs
+    depth: light
+    paths: ["**/*.md", "docs/**", "mkdocs.yml", "architecture/**", "LICENSE*", ".editorconfig"]
+
+# Optional: a PR with more changed lines than this is raised one level (default 400).
+escalate:
+  lines_changed: 400

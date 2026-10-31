@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# scripts/init — from a fresh clone to a green `make check` in one command.
+# Idempotent: safe to run again at any time. Usage: scripts/init [--no-check]
+# Edit the "repo-specific" block below; keep the rest as shipped by Arffornia/agent-kit.
+# Portable: macOS (bash 3.2, BSD tools, Apple Silicon) and Linux (x86_64, arm64).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+say()  { printf '\033[1m==> %s\033[0m\n' "$*"; }
+warn() { printf 'warning: %s\n' "$*" >&2; }
+die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+step() { # <label> <fix hint> <cmd...>: run a step; on failure say what failed and how to fix it
+  local label="$1" hint="$2"; shift 2
+  say "$label"
+  "$@" || die "$label failed (exit $?). $hint"
+}
+run_check=1; [ "${1:-}" = "--no-check" ] && run_check=0
+
+# ---------- toolchain checks (fail early with the fix) ----------
+os="$(uname -s)"; arch="$(uname -m)"
+pm() { # <brew formula> <apt package> <nix attr>: the install hint for this OS
+  case "$os" in
+    Darwin) printf 'macOS (%s): brew install %s, or nix develop (agent-kit docs/SETUP.md).' "$arch" "$1" ;;
+    *) if [ -e /etc/NIXOS ] || have nix; then printf 'nix: add pkgs.%s to the devShell, or nix shell nixpkgs#%s.' "$3" "$3"
+       else printf 'Debian/Ubuntu: sudo apt install %s.' "$2"; fi ;;
+  esac
+}
+need() { have "$1" || die "$1 is required. $2"; }
+need git  "$(pm git git git)"
+need make "$(pm make make gnumake) On macOS, xcode-select --install also provides it."
+if [ -f composer.json ]; then
+  need php "Install PHP. $(pm php php-cli php85)"
+  need composer "$(pm composer composer php85Packages.composer)"
+  # The PHP constraint comes from composer.json ("php": "^8.5" on the website); composer explains a mismatch.
+  [ ! -f composer.lock ] || composer check-platform-reqs --no-dev --lock >/dev/null 2>&1 || \
+    warn "your PHP ($(php -r 'echo PHP_VERSION;' 2>/dev/null)) does not meet this repo's platform requirements; run \`composer check-platform-reqs\`. $(pm php php-cli php85)"
+fi
+[ -f package.json ]  && need node "Install Node 22 LTS. $(pm node@22 nodejs nodejs_22)" && need npm "npm ships with Node."
+if [ -f gradlew ]; then
+  need java "Install a JDK 21. $(pm "--cask temurin@21" openjdk-21-jdk temurin-bin-21)"
+  # macOS ships a /usr/bin/java stub that only prints "Unable to locate a Java Runtime".
+  java -version >/dev/null 2>&1 || die "java is a stub without a JDK. $(pm "--cask temurin@21" openjdk-21-jdk temurin-bin-21)"
+  jv="$(java -version 2>&1 | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -1)"
+  [ -n "$jv" ] && [ "$jv" -lt 17 ] && die "Java $jv found; this repo needs 17+ (21 for the mod)."
+fi
+
+# ---------- env file from the example (never overwrite) ----------
+for ex in .env.example .env.dist; do
+  if [ -f "$ex" ] && [ ! -f .env ]; then
+    cp "$ex" .env
+    say "Created .env from $ex (placeholders only; fill real values yourself, never commit .env)"
+  fi
+done
+
+# ---------- dependencies ----------
+if [ -f composer.json ]; then
+  step "composer install" "If the lock needs a newer PHP than yours (composer says 'requires php >=…'), install that PHP or see AGENTS.md > Gotchas; do not run composer update just to get green." \
+    composer install --no-interaction --prefer-dist --no-progress
+  if [ -f artisan ] && [ -f .env ] && ! grep -qE '^APP_KEY=.+' .env; then
+    php artisan key:generate --ansi
+  fi
+fi
+if [ -f package.json ]; then
+  if [ -f package-lock.json ]; then step "npm ci" "Check your Node version (22 LTS) and that package-lock.json matches package.json." npm ci --no-audit --no-fund
+  else warn "no package-lock.json: running npm install (commit the lockfile it creates)"; npm install --no-audit --no-fund; fi
+fi
+if [ -f gradlew ]; then
+  say "Gradle: resolve dependencies (small-machine settings)"
+  ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx2g -q dependencies >/dev/null || warn "Gradle dependency resolution failed; make check will show why"
+fi
+if [ -f requirements.txt ] && have python3; then
+  say "pip install -r requirements.txt (user site)"
+  python3 -m pip install --user -q -r requirements.txt || warn "pip install failed"
+fi
+
+# ---------- repo-specific (edit me) ----------
+# Examples:
+#   [ -f database/database.sqlite ] || touch database/database.sqlite   # Laravel sqlite for tests
+#   git config core.hooksPath .githooks
+:
+
+# ---------- verify ----------
+if [ "$run_check" = 1 ]; then
+  say "make check"
+  if make check; then say "Green. make check passed."
+  else die "make check failed. Read the output above; AGENTS.md > Gotchas lists the known traps."; fi
+fi
+
+cat <<'EOF'
+
+Next steps
+  - Read AGENTS.md (the map) and PROGRESS.md (current state).
+  - Pick an issue labelled agent-ready, or run /arffornia:work-ticket <number> in Claude Code.
+  - Branch: git switch -c <type>/<issue>-<slug>    Verify: make check    Then open a PR.
+EOF

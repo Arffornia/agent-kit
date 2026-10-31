@@ -1,0 +1,4 @@
+.results/
+__pycache__/
+# Cases mirroring security findings not fixed yet: kept out of this public repo (STANDARDS rule 6).
+reviewer-held/

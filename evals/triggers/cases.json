@@ -1,0 +1,242 @@
+[
+ {
+  "id": "wt-1",
+  "skill": "work-ticket",
+  "should_trigger": true,
+  "query": "Pick up issue #22 in Arffornia_Mods (HTTP timeouts and re-auth on 401) and get it ready for a PR"
+ },
+ {
+  "id": "wt-2",
+  "skill": "work-ticket",
+  "should_trigger": true,
+  "query": "Draft a ticket for the launcher: the vote ranking shows 'undefined' votes, use our labels"
+ },
+ {
+  "id": "wt-n1",
+  "skill": "work-ticket",
+  "should_trigger": false,
+  "query": "What does the effort: M label mean in our taxonomy?"
+ },
+ {
+  "id": "pub-1",
+  "skill": "publish",
+  "should_trigger": true,
+  "query": "Push this branch and open the PR for issue 34"
+ },
+ {
+  "id": "rev-1",
+  "skill": "review",
+  "should_trigger": true,
+  "query": "Review PR 52 on Arffornia_Mods before I merge it"
+ },
+ {
+  "id": "rev-2",
+  "skill": "review",
+  "should_trigger": true,
+  "query": "Can you look over the diff on my branch against main and tell me if anything is wrong before I publish?"
+ },
+ {
+  "id": "rev-n1",
+  "skill": "review",
+  "should_trigger": false,
+  "query": "Write the PR description for the changes on this branch"
+ },
+ {
+  "id": "gt-1",
+  "skill": "mc-gametest",
+  "should_trigger": true,
+  "query": "Add a GameTest proving the Space Elevator launch is rejected when the player is 40 blocks away"
+ },
+ {
+  "id": "gt-2",
+  "skill": "mc-gametest",
+  "should_trigger": true,
+  "query": "runGameTestServer fails with 'Timed out' on crafterCraftsWithEnergy, help me read it"
+ },
+ {
+  "id": "mp-1",
+  "skill": "modpack-change",
+  "should_trigger": true,
+  "query": "Add Sophisticated Backpacks to the modpack for both launcher and server"
+ },
+ {
+  "id": "mp-2",
+  "skill": "modpack-change",
+  "should_trigger": true,
+  "query": "Upgrade Applied Energistics 2 to the latest NeoForge 1.21.1 file in Provisioning"
+ },
+ {
+  "id": "mp-n1",
+  "skill": "modpack-change",
+  "should_trigger": false,
+  "query": "Bump vitest to the latest version in the launcher"
+ },
+ {
+  "id": "i18n-1",
+  "skill": "i18n-sync",
+  "should_trigger": true,
+  "query": "I added new strings to the shop page, make sure the French translations are there and the keys match"
+ },
+ {
+  "id": "i18n-2",
+  "skill": "i18n-sync",
+  "should_trigger": true,
+  "query": "Check en.json and fr.json in the launcher are in sync"
+ },
+ {
+  "id": "ho-1",
+  "skill": "handoff",
+  "should_trigger": true,
+  "query": "I have to stop for today, save where we are so the next session can pick it up"
+ },
+ {
+  "id": "ep-1",
+  "skill": "exec-plan",
+  "should_trigger": true,
+  "query": "Implementing spec 002 will take several sessions; set up a plan we can track in the repo"
+ },
+ {
+  "id": "dbg-1",
+  "skill": "debug",
+  "should_trigger": true,
+  "query": "The launcher crashes with 'Cannot read properties of undefined (reading meta)' after a failed login, find out why"
+ },
+ {
+  "id": "dbg-n1",
+  "skill": "debug",
+  "should_trigger": false,
+  "query": "Explain what the ProgressionBackend interface is for"
+ },
+ {
+  "id": "ver-1",
+  "skill": "verify",
+  "should_trigger": true,
+  "query": "I fixed the token redaction; prove it actually works in the running launcher, not just in unit tests"
+ },
+ {
+  "id": "exp-1",
+  "skill": "explain",
+  "should_trigger": true,
+  "query": "How does a vote on a vote site end up as a reward in game? Explain with a diagram"
+ },
+ {
+  "id": "ch-1",
+  "skill": "challenge",
+  "should_trigger": true,
+  "query": "Play devil's advocate on spec 002's decision to build our own multiblock framework"
+ },
+ {
+  "id": "ch-2",
+  "skill": "challenge",
+  "should_trigger": true,
+  "query": "Do a pre-mortem of moving recipes to a datapack"
+ },
+ {
+  "id": "cad-1",
+  "skill": "cadrage",
+  "should_trigger": true,
+  "query": "I want a seasonal events system for Arffornia but it's still vague, help me frame it into a spec"
+ },
+ {
+  "id": "prio-1",
+  "skill": "prio",
+  "should_trigger": true,
+  "query": "What should I work on next across the Arffornia repos?"
+ },
+ {
+  "id": "tm-1",
+  "skill": "threat-model",
+  "should_trigger": true,
+  "query": "I'm adding a new IPC channel so the renderer can install resource packs from a URL. What could go wrong security-wise?"
+ },
+ {
+  "id": "pm-1",
+  "skill": "postmortem",
+  "should_trigger": true,
+  "query": "Yesterday from 18:00 to 21:40 UTC nobody could join the server after a modpack update. Write the postmortem"
+ },
+ {
+  "id": "rn-1",
+  "skill": "release-notes",
+  "should_trigger": true,
+  "query": "Prepare the patch notes for the next mod release, in English and French for Discord"
+ },
+ {
+  "id": "up-n1",
+  "skill": "upgrade-deps",
+  "should_trigger": false,
+  "query": "Upgrade electron in the launcher and open the PR"
+ },
+ {
+  "id": "onb-1",
+  "skill": "onboard",
+  "should_trigger": true,
+  "query": "I'm new here, where do I start and how do the Arffornia repos fit together?"
+ },
+ {
+  "id": "ha-1",
+  "skill": "harness-audit",
+  "should_trigger": true,
+  "query": "Our agent skills are getting bloated; audit them and tell me what to prune"
+ },
+ {
+  "id": "mcm-1",
+  "skill": "mc-machine",
+  "should_trigger": true,
+  "query": "Scaffold the Constructor machine from the tier plan in the mod"
+ },
+ {
+  "id": "ui-1",
+  "skill": "mc-ui-check",
+  "should_trigger": true,
+  "query": "I changed the Crafter screen; check the French labels don't overflow at GUI scale 4"
+ },
+ {
+  "id": "nd-1",
+  "skill": "noodle-arffornia",
+  "should_trigger": true,
+  "query": "We added a Redis to the website namespace in infra; update the runtime architecture diagram on the docs site"
+ },
+ {
+  "id": "nd-n1",
+  "skill": "noodle-arffornia",
+  "should_trigger": false,
+  "query": "Draw me a quick mermaid flowchart of the login steps for this chat"
+ },
+ {
+  "id": "rev-3",
+  "skill": "review",
+  "should_trigger": true,
+  "query": "I'm done with the change on this branch. Before you hand it back, run our end-of-task review on the diff."
+ },
+ {
+  "id": "hf-1",
+  "skill": "harness-feedback",
+  "should_trigger": true,
+  "query": "The work-ticket skill told you to run npm test but this repo only has make check, and it's the third time. Write that down for the harness so it gets fixed."
+ },
+ {
+  "id": "hf-2",
+  "skill": "harness-feedback",
+  "should_trigger": true,
+  "query": "The guard keeps blocking `git checkout -- .` even though the tree was clean. Log this friction for agent-kit with a proposed fix."
+ },
+ {
+  "id": "hf-n1",
+  "skill": "harness-feedback",
+  "should_trigger": false,
+  "query": "Change the launcher's primary button color to the brand orange."
+ },
+ {
+  "id": "lc-1",
+  "skill": "learning-card",
+  "should_trigger": true,
+  "query": "That tree-hash review stamp trick is clever and new to me. Write it up as a learning card so I can study it later."
+ },
+ {
+  "id": "lc-n1",
+  "skill": "learning-card",
+  "should_trigger": false,
+  "query": "Explain how the launcher downloads mods from Provisioning."
+ }
+]

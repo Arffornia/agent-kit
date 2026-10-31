@@ -2,6 +2,15 @@
 
 Schedule: monthly, 5th, 06:55 Europe/Paris. Model: Sonnet (see agent-kit docs/MODELS.md). Normal run: ~40 min / 120 turns. Hard cap: 3 h / 450 turns.
 
+## Gate: skip when nothing changed (do this first)
+Find `since`: your newest bookmark (see "Bookmark"), else one period back. Then check activity
+in the repos this agent reads, with one cheap call per repo:
+`gh api "repos/Arffornia/$R/commits?since=$SINCE&per_page=1" --jq length` and
+`gh api "repos/Arffornia/$R/issues?since=$SINCE&state=all&per_page=1" --jq length` (issues and PRs).
+All zero: write only `Skipped: no activity since <since>` plus your previous bookmark line, and
+stop. A call that fails counts as activity (unreadable is not empty). Local runs do this check in
+`run-local.sh` before starting the model; `ARFFORNIA_FORCE=1` or a manual run skips the gate.
+
 ## Goal
 Keep `QUALITY_SCORE.md` in each repo an honest, evidence-based grade per area, so Brian and agents
 know where the code is weak and what to improve next. One draft PR per repo whose score changed.

@@ -1,0 +1,11 @@
+# agent	cadence	OnCalendar (systemd)	launchd (Day Weekday Hour Minute; - = any)	scope	enabled
+weekly-brief	weekly, Friday 18:40	Fri *-*-* 18:40:00	- 5 18 40	org	yes
+review-feedback	monthly, 1st 05:05	*-*-01 05:05:00	1 - 5 5	agent-kit	yes
+harness-feedback	monthly, 4th 05:35	*-*-04 05:35:00	4 - 5 35	agent-kit	yes
+doc-gardener	monthly, 8th 05:20	*-*-08 05:20:00	8 - 5 20	org	after-two-good-runs
+deps-upgrade	monthly, 10th 05:35	*-*-10 05:35:00	10 - 5 35	org	after-two-good-runs
+harness-audit	monthly, 15th 06:10	*-*-15 06:10:00	15 - 6 10	agent-kit	after-two-good-runs
+security-audit	monthly, 2nd 06:25	*-*-02 06:25:00	2 - 6 25	org	after-two-good-runs
+onboarding-audit	monthly, 3rd 06:40	*-*-03 06:40:00	3 - 6 40	org	after-two-good-runs
+quality-score	monthly, 5th 06:55	*-*-05 06:55:00	5 - 6 55	org	after-two-good-runs
+practice-watch	monthly, 20th 05:50	*-*-20 05:50:00	20 - 5 50	self	after-two-good-runs

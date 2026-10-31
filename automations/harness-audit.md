@@ -1,6 +1,15 @@
 # harness-audit
 
-Schedule: monthly, 1st, 06:10 Europe/Paris. Model: Opus (see agent-kit docs/MODELS.md). Normal run: ~40 min / 120 turns. Hard cap: 3 h / 450 turns.
+Schedule: monthly, 15th, 06:10 Europe/Paris. Model: Opus (see agent-kit docs/MODELS.md). Normal run: ~40 min / 120 turns. Hard cap: 3 h / 450 turns.
+
+## Gate: skip when nothing changed (do this first)
+Find `since`: your newest bookmark (see "Bookmark"), else one period back. Then check activity
+in the repos this agent reads, with one cheap call per repo:
+`gh api "repos/Arffornia/$R/commits?since=$SINCE&per_page=1" --jq length` and
+`gh api "repos/Arffornia/$R/issues?since=$SINCE&state=all&per_page=1" --jq length` (issues and PRs).
+All zero: write only `Skipped: no activity since <since>` plus your previous bookmark line, and
+stop. A call that fails counts as activity (unreadable is not empty). Local runs do this check in
+`run-local.sh` before starting the model; `ARFFORNIA_FORCE=1` or a manual run skips the gate.
 
 ## Goal
 Check that the agent harness in every repo still does its job ("the harness makes the quality,

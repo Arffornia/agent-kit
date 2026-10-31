@@ -30,7 +30,12 @@ Architecture: https://arffornia.github.io/docs/ · Related: `<Repo>` (<why>), `<
 - English for code, comments, logs, docs, commits and PRs. Player-facing text through i18n (en + fr).
 - Branch `<type>/<issue>-<slug>`; Conventional Commits; one PR per issue with `Closes #n`;
   PR body: What / Why / How it was tested / Risk & revert.
-- Never merge, tag, release, delete branches, push to the default branch or touch secrets.
+- Open your PR yourself once `make check` passes and the end-of-task review is clean. Merge,
+  tag, release or deploy only inside a chantier the maintainer approved on the review stack
+  (the orchestrator runs the chantier merge plan); never push to the default branch, delete
+  branches or touch secrets. Workflow: agent-kit `docs/WORKFLOW.md`.
+- Live project state (chantiers, decisions, next steps) is in the private ops repo
+  `Arffornia/ops` `STATE.md`; read it at the start of a session (`resume` skill) when you can.
 - Do not replace the owner's libraries (Nexus_*, launcher modules) with third-party ones: improve them.
 - `needs-decision` issues and design choices belong to the maintainer: ask, do not choose.
 - Unfixed security weaknesses: neutral wording in public issues and PRs, no exploit details.

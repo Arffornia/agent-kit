@@ -77,11 +77,50 @@ Scheduled automations (the model is chosen in the scheduled task's prompt box, o
 
 | Automation | Model | Why |
 |---|---|---|
-| `daily-brief`, `onboarding-audit`, `quality-score`, `review-feedback` | Sonnet | Reading, summarising and counting; knowledge-work parity, output reviewed by Brian |
+| `weekly-brief`, `onboarding-audit`, `quality-score`, `review-feedback` | Sonnet | Reading, summarising and counting; knowledge-work parity, output reviewed by Brian |
 | `doc-gardener` | Sonnet | As the agent above; draft PRs only |
 | `deps-upgrade` | Opus | Changes code and fixes the breakage an upgrade causes |
 | `harness-feedback` | Opus | Edits hooks, skills and rules that every future session runs on |
 | `harness-audit`, `security-audit` | Opus | Judgment across many repos; security misses are costly |
+| `practice-watch` | Opus | Judging which new practice deserves a change to the skill layers |
+| Skip gate ("anything changed since the last run?") | none | A shell script (`automations/activity.sh`) answers it before any model starts: zero tokens |
+
+## Is Haiku enough for mechanical tasks?
+
+Short answer: **yes, but only for the truly mechanical ones**, and most "simple-looking" agent
+work is not mechanical. Brian asked (2026-10-31) whether "mechanical" means the most basic of
+the basic: it does.
+
+What the evidence says:
+- Anthropic positions Haiku 5.5 "for high-volume, latency-sensitive tasks such as
+  classification, extraction, and routing" ([models overview](https://platform.claude.com/docs/en/about-claude/models/overview),
+  read 2026-10-31), and Claude Code's docs say "Haiku is a good fit for subagents doing simple
+  jobs" ([best practices](https://code.claude.com/docs/en/best-practices)).
+- On multi-step agentic work it falls far behind: Terminal-Bench 4.0 39.2% vs Sonnet 70.6% and
+  Opus 66.4%; FrontierCode 46.4% vs 52-54% (table above, Anthropic launch numbers). A loop of
+  tool calls with decisions in between is exactly where the gap shows.
+- Price: Haiku input is 20x cheaper than Sonnet ($0.10 vs $2 per million tokens below 100k
+  prompt). The saving is real only when the task is repeated often; an occasional run saves cents.
+
+So a task is **mechanical** (Haiku is fine) only when all of these hold:
+1. One step, or a fixed sequence with no judgement between steps.
+2. The output can be checked by a rule or a script (a schema, a test, "the file exists", a
+   count), so a wrong answer is caught for free.
+3. No code is written or changed, and nothing is decided for Brian.
+
+| Task | Model | Why |
+|---|---|---|
+| "List every file that imports X", "which repos have a Makefile check target" | Haiku | Lookup; result checkable with grep |
+| Classify an issue into fixed labels; route a request to a skill | Haiku | Fixed label set; a wrong label is visible and cheap |
+| Extract fields into a JSON schema that a script validates | Haiku | Schema validation catches errors |
+| Summarise a CI log to "first failing test + error line" | Haiku | Short, checkable against the log |
+| Anything that edits code, writes tests, reviews, or verifies a claim | Sonnet or Opus | Multi-step, judgement, errors are costly to spot |
+| Facts for diagrams (`fact-finder`), doc checking (`doc-gardener`) | Sonnet | Extraction across many files with judgement; Haiku tried and rejected (gap above) |
+| Scheduled reports read by Brian (`weekly-brief`) | Sonnet | One run a week: the Haiku saving is cents, a missed red CI is not |
+
+Rule for the harness: a role moves to Haiku only after its eval runs at pass^3 on Haiku with no
+loss (method below). Where a script can do the job (the skip gate, link checks, guard checks),
+use the script and no model at all.
 
 ## Cost per review
 

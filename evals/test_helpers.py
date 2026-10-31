@@ -61,6 +61,10 @@ class RiskRouter(Tmp):
         self.assertEqual(out["overall"], "low")
 
     def test_template_shape_first_match_and_security(self):
+        try:
+            import yaml  # noqa: F401  (ordered rules need PyYAML; risk.py says so and exits)
+        except ImportError:
+            self.skipTest("PyYAML missing")
         write(self.d, "risk.yml", """\
             version: 1
             default: standard

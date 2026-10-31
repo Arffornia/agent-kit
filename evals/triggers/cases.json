@@ -18,9 +18,9 @@
   "query": "What does the effort: M label mean in our taxonomy?"
  },
  {
-  "id": "pub-n1",
+  "id": "pub-1",
   "skill": "publish",
-  "should_trigger": false,
+  "should_trigger": true,
   "query": "Push this branch and open the PR for issue 34"
  },
  {

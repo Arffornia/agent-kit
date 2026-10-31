@@ -1,14 +1,16 @@
 ---
 name: publish
-description: "Publish the current branch as a draft pull request on an Arffornia repo after checking the branch, secrets, make check, review and evidence. Human-invoked only: /arffornia:publish [issue]."
-disable-model-invocation: true
+description: "Publish the current branch as a pull request on an Arffornia repo after checking the branch, secrets, make check, the end-of-task review and evidence. Agents run it themselves at the end of a task (work-ticket step 10) once every check is green; Brian can also run /arffornia:publish [issue]."
 argument-hint: "[issue-number]"
 ---
 
-# Publish the branch as a draft PR
+# Publish the branch as a PR
+<!-- side-effect-approved: Brian, 2026-10-31 on the review stack (agent-kit card, decision "publish"): agents push their own feature branch and open the PR after every gate below; never merge, never push to the default branch -->
 
-Brian runs this himself. Claude never starts it, because pushing makes work public. Stop at
-the first failed step and report it; do not work around it.
+Agents open their own PRs (Brian's workflow, 2026-10-31: agent-kit `docs/WORKFLOW.md`). This
+skill is the gate in front of that: every step must pass, in order. Stop at the first failed
+step and report it; do not work around it. Pushing makes work public, which is why steps 4-6
+are not optional.
 
 1. **Branch.** `git branch --show-current` is not the default branch and follows
    `<type>/<n>-slug` (or `chore/…`, `docs/…` without a number). Otherwise stop.
@@ -30,9 +32,10 @@ the first failed step and report it; do not work around it.
    bash "${CLAUDE_PLUGIN_ROOT}/scripts/review-stamp.sh" status    # reviewed=yes for this tree?
    ```
    `reviewed=no`: run `/arffornia:review` now (in-session mode). Every finding has a label
-   (`review-stamp.sh label`). For a `security: true` change, offer Brian `/code-review ultra`
-   (cloud Ultrareview on his claude.ai account) as an optional extra pass. If Brian chooses
-   to publish without a review, say so in the PR.
+   (`review-stamp.sh label`). An open blocking finding: stop, fix, review again. For a
+   `security: true` change, note in the chantier card that `/code-review ultra` is available
+   as an extra pass for Brian. Publishing without a review happens only when Brian asks for
+   it, and the PR says so.
 7. **Body.** Fill `.github/pull_request_template.md` (details:
    [references/pr-body.md](references/pr-body.md)): What, Why with `Closes #<n>` (from
    `$ARGUMENTS` or the branch name), How it was tested with real output, Risk & revert,
@@ -40,12 +43,15 @@ the first failed step and report it; do not work around it.
    (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/review-stamp.sh" summary`, which ends with the
    `<!-- arffornia-review v1 … -->` marker the weekly review-feedback run reads; keep it
    verbatim), then the footer the repo or session requires.
-8. **Push and open as draft.** The only push; Claude Code asks before it:
+8. **Push and open the PR.** Ready for review when steps 1-7 all passed; draft when the work
+   is deliberately partial (say why in the body). The only push of the task:
    ```bash
    git push -u origin HEAD
    gh api repos/Arffornia/<repo>/pulls -f title='<conventional title>' -f head=<branch> \
-     -f base=<base> -f body="$(cat pr.md)" -F draft=true --jq .html_url
+     -f base=<base> -f body="$(cat pr.md)" -F draft=<true|false> --jq .html_url
    gh api repos/Arffornia/<repo>/issues/<pr>/labels -f 'labels[]=type: …' -f 'labels[]=area: …'
    ```
 9. **Report** per [references/reporting.md](references/reporting.md): the PR URL with a
-   one-line summary and CI state, what to read first, open questions. Never merge.
+   one-line summary and CI state, what to read first, open questions. Add the PR to its
+   chantier (review-stack card, chantier issue). Never merge here: merging happens only for
+   an approved chantier, through the orchestrator's merge plan.

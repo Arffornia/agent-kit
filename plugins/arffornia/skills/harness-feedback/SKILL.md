@@ -10,7 +10,7 @@ argument-hint: "[short description of the friction]"
 
 The harness (agent-kit: skills, subagents, hooks, rules, templates) only improves if its
 failures are written down with a fix. One lesson = one issue; the same lesson seen again = a
-comment on that issue. A weekly automation turns open issues into one PR.
+comment on that issue. A monthly automation turns open issues into one PR.
 
 Signal: `$ARGUMENTS` (or what just happened). Do the user's task first; record the lesson
 before you finish, in under five minutes.
@@ -20,7 +20,10 @@ before you finish, in under five minutes.
 Yes when the next agent, in another session, would hit it again: a rule that is missing or
 misleading, a skill step that is wrong, stale or unclear, a guard or hook that blocked a
 legitimate action or let a bad one through, a model or effort choice that failed, a command
-that does not work on macOS or Linux, a better workflow you found. **No** when the correction
+that does not work on macOS or Linux, a better workflow you found, or **a procedure you just did
+by hand for the second time** ("done twice -> skill": add the label `skill-candidate` and link
+both occurrences; the monthly run lists candidates and an agent drafts the skill with the
+playbook's `propose-skill`). **No** when the correction
 is only about this task's content ("make the button blue"): skip, say nothing.
 
 ## 2. Search before you write

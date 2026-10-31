@@ -21,8 +21,8 @@ git repo with only this plugin (`--plugin-dir plugins/arffornia`) and only `Skil
 `Glob`, `Grep` allowed in `dontAsk` mode, so a run cannot change anything. Pass = Claude calls
 the Skill tool with exactly `arffornia:<skill>` (or does not, for `should_trigger: false`).
 Matching is strict because Claude Code bundles skills with the same short names (`/review`,
-`/verify`). Manual skills (`publish`, `upgrade-deps`) are negative cases: they must never
-auto-load. Near-miss negatives (`rev-n1`, `mp-n1`, `nd-n1`) matter more than easy ones.
+`/verify`). Manual skills (`upgrade-deps`) are negative cases: they must never auto-load. `publish` is
+agent-run since 2026-10-31 (Brian's workflow), so "push this branch and open the PR" must load it. Near-miss negatives (`rev-n1`, `mp-n1`, `nd-n1`) matter more than easy ones.
 `--runs 3` uses the majority vote; triggering is not deterministic.
 
 ## Reviewer: does the review find what matters, and only that?

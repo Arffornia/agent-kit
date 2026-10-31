@@ -1,0 +1,52 @@
+# Arffornia org layer (layer 2 of 3) on top of Brian's generic base, agent-playbook (layer 1).
+# Every Arffornia repo extends this file from its own .agents/overlay.yaml (layer 3):
+#   extends: [{git: https://github.com/Arffornia/agent-kit, ref: main, overlay: overlay/arffornia.yaml}]
+# Paths below are relative to the agent-kit repo root. Plan and status: docs/ORG-LAYER.md.
+apiVersion: agentskills/v1
+base:
+  git: https://github.com/TheGostsniperfr/agent-playbook
+  ref: main
+skills:
+  - name: review-stack
+    version: ^1.1
+    patches:
+      - append_section:
+          heading: Rules
+          text: |
+            - Arffornia: the stack is "Arffornia Review Stack"; its URL is in Arffornia/ops STATE.md.
+            - Arffornia: chantier issues live in Arffornia/docs (form chantier.yml); mirror the verdict
+              as the label `chantier: approved` or `chantier: changes`. The orchestrator merges with
+              "Create a merge commit", never squash.
+  - name: handoff
+    version: ^1.0
+    patches:
+      - append_section:
+          heading: Steps
+          text: |
+            8. Arffornia: the ops repo is `Arffornia/ops` (private). Also update the current repo's
+               `PROGRESS.md` and active exec plan (what agent-kit's former `/arffornia:handoff` did):
+               [references/arffornia.md](references/arffornia.md).
+      - add_files:
+          references/arffornia.md: overlay/handoff/arffornia.md
+  - name: resume
+    version: ^1.0
+  - name: propose-skill
+    version: ^1.0
+    patches:
+      - append_section:
+          heading: Rules
+          text: "- Arffornia: org-layer skills go to Arffornia/agent-kit `plugins/arffornia/skills/` (or as a patch here); candidates are tracked with the `skill-candidate` label in agent-kit."
+  - name: cross-repo-issue
+    version: ^1.0
+    patches:
+      - append_section:
+          heading: Rules
+          text: |
+            - Arffornia: the origin label is `from: arffornia`. For Noodle (TheGostsniperfr/noodle),
+              follow its CONTRIBUTING and AGENTS.md; link the issue from the Arffornia chantier or report.
+  - name: bootstrap
+    version: ^1.0
+  - name: overlay-apply
+    version: ^1.1
+  - name: artifact-style
+    version: ^1.0

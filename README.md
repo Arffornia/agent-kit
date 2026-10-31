@@ -99,3 +99,7 @@ When you (or an agent) do the same multi-step action twice, it becomes a skill.
 claude plugin validate .                    # marketplace
 claude plugin validate plugins/arffornia    # plugin, skills, agent
 ```
+
+## License
+
+[MIT](LICENSE), © Brian Perret and Arffornia contributors.

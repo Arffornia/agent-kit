@@ -15,7 +15,7 @@ or page as a full URL with a one-line summary, grouped Decide / Review / Act / F
 | Skill | When to use | Invocation | Side effects |
 |---|---|---|---|
 | `work-ticket` | Work an issue to a verified, committed branch; draft issues with the label taxonomy | auto | branch, commits (local); creates an issue only when the user approves the text; stops before push |
-| `publish` | Push the branch and open a draft PR after secrets scan, `make check`, review and evidence | **manual** | `git push`, opens a draft PR, adds labels |
+| `publish` | Run by agents at the end of a task (or by Brian): checks branch, secrets, `make check`, the end-of-task review stamp and evidence, then pushes and opens the PR. Never merges: only approved chantiers merge, through the merge plan | auto (side effect approved by Brian, 2026-10-31) | `git push` of the feature branch, opens the PR, adds labels |
 | `review` | End-of-task review in the session (the Stop hook asks for it) or review of a PR, branch or diff: risk-routed `review-finder` subagents, `review-verifier` per candidate, confirmed findings only, stamp per tree, max 3 rounds | auto | in-session: writes the stamp and log under `.git/claude-harness/`; PR mode: none (comments only when asked) |
 | `mc-gametest` | Write, run and debug NeoForge GameTests in Arffornia_Mods | auto (paths: gametest, network, block entities) | test files; runs Gradle (`scripts/run_gametests.sh`) |
 | `modpack-change` | Add, upgrade or remove a mod in Arffornia_Provisioning | auto (paths: `config/*/modList.json`) | edits modList, `make indexes`; `scripts/modpack.py` is read-only |
@@ -76,5 +76,6 @@ python3 evals/run.py triggers && python3 evals/run.py reviewer           # model
 Done twice by hand → a skill. Description = what + when, the trigger words users say first,
 quoted if it contains ` #`. Body under ~150 lines, detail in `references/`, deterministic steps
 in `scripts/` with a test in `evals/test_helpers.py`. Side effects → `disable-model-invocation:
-true`. Heavy read-only research → `context: fork`. Add trigger cases (including a near-miss
+true`, unless Brian approved that exact side effect (then a `<!-- side-effect-approved: ... -->`
+line says who, when and what, as in `publish`). Heavy read-only research → `context: fork`. Add trigger cases (including a near-miss
 negative) to `evals/triggers/cases.json` and a row here.

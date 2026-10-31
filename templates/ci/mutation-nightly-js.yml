@@ -1,0 +1,70 @@
+# Nightly mutation testing for JS/TS with Stryker (agent-kit template).
+# Copy to .github/workflows/mutation-nightly.yml. Report only: thresholds.break is 0.
+# Needs a working unit test runner (Vitest by default; set TEST_RUNNER=jest for Jest repos).
+# Scope: only the critical modules (MUTATE); e.g. for the launcher the IPC handlers and downloaders.
+name: Mutation (nightly)
+
+on:
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+    inputs:
+      mutate:
+        description: "Comma-separated globs to mutate (default: MUTATE)"
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  MUTATE: "src/main/ipcHandlers/**/*.js,src/main/neoforgeDownloader.js,src/main/shaderManager.js"
+  TEST_RUNNER: vitest           # or: jest
+  STRYKER_VERSION: 10.0.0
+
+jobs:
+  stryker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Stryker (not saved to package.json)
+        run: npm install --no-save "@stryker-mutator/core@$STRYKER_VERSION" "@stryker-mutator/$TEST_RUNNER-runner@$STRYKER_VERSION"
+      - name: Run Stryker on the critical modules
+        env:
+          INPUT_MUTATE: ${{ inputs.mutate }}
+        run: |
+          mutate="${INPUT_MUTATE:-$MUTATE}"
+          [ -f stryker.config.json ] || [ -f stryker.config.mjs ] || cat > stryker.config.json <<JSON
+          {
+            "testRunner": "$TEST_RUNNER",
+            "reporters": ["clear-text", "html", "json"],
+            "htmlReporter": { "fileName": "reports/mutation/index.html" },
+            "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+            "thresholds": { "high": 80, "low": 60, "break": 0 },
+            "concurrency": 2
+          }
+          JSON
+          npx stryker run --mutate "$mutate" 2>&1 | tee stryker.log || echo "::warning::Stryker exited non-zero; see the log."
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Mutation score (Stryker) — report only"
+            echo '```'
+            grep -E 'All files|^-|% Mutation score|Final mutation score' stryker.log | tail -40 || echo "no report"
+            echo '```'
+            echo "Kill a survivor: open the HTML report, pick a survived mutant on a critical path, write the test that fails on it."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 30

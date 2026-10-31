@@ -1,0 +1,58 @@
+{
+  "description": "Arffornia harness: repo-state card at start, issue context and correction hints on prompts, guards before tools, format+lint after edits, make check + in-session review gate at stop, automatic PROGRESS.md handoff.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"], "timeout": 15, "statusMessage": "Building the repo-state card" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/issue-context.sh"], "timeout": 10 },
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/prompt-signals.sh"], "timeout": 5 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit|Read",
+        "hooks": [
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh"], "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/post-edit.sh"], "timeout": 90, "statusMessage": "Formatting and linting the edited file" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/stop.sh"], "timeout": 1800, "statusMessage": "Running make check and the review gate before finishing" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/handoff.sh"], "timeout": 10 }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/handoff.sh"], "timeout": 5 }
+        ]
+      }
+    ]
+  }
+}

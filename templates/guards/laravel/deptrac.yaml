@@ -1,0 +1,94 @@
+# Architecture guard for the Laravel website (agent-kit template). Copy to the repo root.
+# Layering: Controllers -> Services -> Repositories -> Models (Eloquent).
+#   - controllers may use Models (route-model binding, type hints, passing instances along:
+#     idiomatic Laravel) but no Eloquent / query builder / DB facade and no Repositories
+#   Limit: deptrac sees class references, so `Model::where()` in a controller counts as "uses
+#   Model" and is not caught here; the Laravel rule and the in-session review cover queries.
+#   - no Http facade or HTTP client outside Services
+# Run: make arch   (see templates/guards/README.md). Fix hints: tools/deptrac-explain.php.
+# Existing offenders live in deptrac.baseline.yaml (generated); new violations fail.
+deptrac:
+  paths:
+    - ./app
+  exclude_files:
+    - '#.*/tests?/.*#'
+
+  layers:
+    - name: Controller
+      collectors:
+        - type: classLike
+          value: ^App\\Http\\Controllers\\.*
+    - name: Request
+      collectors:
+        - type: classLike
+          value: ^App\\Http\\Requests\\.*
+    - name: Resource
+      collectors:
+        - type: classLike
+          value: ^App\\Http\\Resources\\.*
+    - name: Middleware
+      collectors:
+        - type: classLike
+          value: ^App\\Http\\Middleware\\.*
+    - name: Console
+      collectors:
+        - type: classLike
+          value: ^App\\(Console|Jobs|Listeners)\\.*
+    - name: Service
+      collectors:
+        - type: classLike
+          value: ^App\\Services\\.*
+    - name: Repository
+      collectors:
+        - type: classLike
+          value: ^App\\Repositories\\.*
+    - name: Model
+      collectors:
+        - type: classLike
+          value: ^App\\Models\\.*
+    # Vendor layers: referenced framework classes are collected by name.
+    - name: Eloquent
+      collectors:
+        - type: classLike
+          value: ^Illuminate\\Database\\(Eloquent|Query)\\.*
+        - type: classLike
+          value: ^Illuminate\\Support\\Facades\\(DB|Schema)$
+    - name: HttpClient
+      collectors:
+        - type: classLike
+          value: ^Illuminate\\Support\\Facades\\Http$
+        - type: classLike
+          value: ^Illuminate\\Http\\Client\\.*
+        - type: classLike
+          value: ^GuzzleHttp\\.*
+
+  ruleset:
+    # Controllers parse input, call a service, shape the response. Models are allowed for
+    # route-model binding (decision 2026-10-29); queries stay in repositories.
+    Controller:
+      - Service
+      - Request
+      - Resource
+      - Model
+    Request: [Model]           # FormRequest rules may reference models (exists:, policies)
+    Resource: [Model]          # API Resources wrap models for output
+    Middleware: [Service, Model]
+    Console: [Service, Repository, Model]
+    Service:
+      - Repository
+      - Model                  # models as values; queries belong in repositories
+      - HttpClient             # the only layer allowed to call other HTTP services
+    Repository:
+      - Model
+      - Eloquent
+    Model:
+      - Eloquent
+
+  formatters:
+    graphviz:
+      groups:
+        Http: [Controller, Request, Resource, Middleware]
+        Domain: [Service, Repository, Model]
+
+imports:
+  - deptrac.baseline.yaml

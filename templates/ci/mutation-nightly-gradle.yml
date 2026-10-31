@@ -1,0 +1,65 @@
+# Nightly mutation testing for Gradle/Java with PIT (agent-kit template).
+# Copy to .github/workflows/mutation-nightly.yml and templates/ci/pitest.init.gradle to
+# .github/pitest.init.gradle. The init script applies the PIT plugin at run time, so build.gradle
+# does not change. Report only: mutationThreshold is 0.
+# Scope: only the critical packages (PIT_TARGET_CLASSES). Needs JUnit 5 unit tests (`./gradlew test`);
+# GameTests are not run by PIT.
+name: Mutation (nightly)
+
+on:
+  schedule:
+    - cron: "53 2 * * *"
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: "Comma-separated class globs (default: PIT_TARGET_CLASSES)"
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  # Critical packages for Arffornia_Mods: payload handlers, rewards, API client. Adjust per repo.
+  PIT_TARGET_CLASSES: "fr.thegostsniperfr.arffornia.network.*,fr.thegostsniperfr.arffornia.shop.*,fr.thegostsniperfr.arffornia.api.*"
+
+jobs:
+  pitest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Run PIT on the critical packages
+        env:
+          INPUT_TARGETS: ${{ inputs.targets }}
+        run: |
+          export PIT_TARGET_CLASSES="${INPUT_TARGETS:-$PIT_TARGET_CLASSES}"
+          ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx2g --init-script .github/pitest.init.gradle pitest \
+            || echo "::warning::PIT exited non-zero (tests red or nothing to mutate); see the log."
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Mutation score (PIT) — report only"
+            echo "Scope: \`${{ inputs.targets || env.PIT_TARGET_CLASSES }}\`"
+            f=$(find build/reports/pitest -name mutations.xml 2>/dev/null | head -1)
+            if [ -n "$f" ]; then
+              total=$(grep -c '<mutation ' "$f"); killed=$(grep -c "status='KILLED'" "$f")
+              echo "Killed $killed of $total mutants."
+            else
+              echo "no report produced"
+            fi
+            echo "Kill a survivor: open index.html, pick a SURVIVED mutant on a critical path, write the test that fails on it."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutation-report
+          path: build/reports/pitest/
+          retention-days: 30

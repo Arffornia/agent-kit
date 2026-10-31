@@ -1,0 +1,16 @@
+# Repos the org-wide automations read (owner Arffornia). One per line; '#' starts a comment.
+Arffornia_Website
+Arffornia_Launcher_V.5.2
+Arffornia_Mods
+Arffornia_Proxy
+Arffornia_Provisioning
+Nexus_Java
+Nexus_Logger
+Nexus_Saver
+Nexus_Mods
+Noodle
+agent-kit
+keycloak-theme-arffornia
+minecraft-oauth
+minecraft-server-charts
+docs

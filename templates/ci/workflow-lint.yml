@@ -1,0 +1,36 @@
+# Deterministic checks for the repo's own automation: GitHub Actions workflows and shell scripts.
+# Copy to .github/workflows/workflow-lint.yml. Free tools, no secrets, read-only token.
+#   actionlint: workflow syntax, expressions, shellcheck on run: blocks
+#   zizmor: workflow security (template injection, excessive permissions, unpinned actions)
+#   shellcheck: every tracked *.sh
+name: workflow-lint
+on:
+  pull_request:
+    paths: [".github/**", "**/*.sh"]
+  push:
+    branches: [main]
+    paths: [".github/**", "**/*.sh"]
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - name: actionlint, pinned release verified by sha256
+        env:
+          AL_VERSION: 1.7.7
+          AL_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
+        run: |
+          curl -sSfLo actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${AL_VERSION}/actionlint_${AL_VERSION}_linux_amd64.tar.gz"
+          echo "${AL_SHA256}  actionlint.tgz" | sha256sum -c -
+          tar xzf actionlint.tgz actionlint
+          ./actionlint -color
+      - name: zizmor (pinned)
+        run: pipx run zizmor==1.31.1 --min-severity medium .github/workflows
+      - name: shellcheck
+        run: |
+          files="$(git ls-files '*.sh')"
+          if [ -n "$files" ]; then printf '%s\n' "$files" | xargs shellcheck -S warning; else echo "no shell scripts"; fi

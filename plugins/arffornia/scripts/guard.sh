@@ -97,7 +97,7 @@ check_push() { # words after "push"
     i=$((i+1))
   done
   [ "$force" = 1 ] && block "force-push rewrites published history (and can destroy others' commits)." \
-    "add a new commit instead. If a rebase on your own branch really needs it, ask the maintainer, or use \`git push --force-with-lease\` on your feature branch only."
+    "add a new commit instead (or merge main into your branch). If a rebase of your own feature branch really needs it, use \`git push --force-with-lease\`: it overwrites your branch only if nobody else pushed to it since you last fetched, so it cannot erase someone else's work."
   local r dst cur
   cur="$(current_branch)"
   if [ "${#refs[@]}" -eq 0 ]; then

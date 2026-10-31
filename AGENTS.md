@@ -32,8 +32,10 @@ jq . plugins/arffornia/hooks/hooks.json templates/.claude/settings.json >/dev/nu
 ```
 
 ## Rules
-- English. Conventional Commits (`feat(hooks): …`, `fix(templates): …`), one concern per PR,
-  never merge: the maintainer merges. Commit trailers and PR footer as in the session standards.
+- English. Conventional Commits (`feat(hooks): …`, `fix(templates): …`), one concern per PR.
+  Agents open their PRs themselves (after `make check` and the end-of-task review) and merge
+  only PRs of a chantier Brian approved on the review stack, through the chantier merge script
+  ([docs/WORKFLOW.md](docs/WORKFLOW.md)). Commit trailers and PR footer as in the session standards.
 - Read the current Claude Code docs before changing a hook, setting or plugin file
   (https://code.claude.com/docs/en/hooks, /plugins-reference, /settings, /memory); use the
   exact documented formats and validate.

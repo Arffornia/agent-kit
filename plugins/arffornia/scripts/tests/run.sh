@@ -297,5 +297,18 @@ for s in session-start guard post-edit stop handoff issue-context prompt-signals
   [ "$RC" = 0 ] && ok "$s no-op outside a git repo" || ko "$s outside repo rc=$RC"
 done
 
+# ---------- guards-check.sh ----------
+G="$T/gc"; mkdir -p "$G/.github/workflows"; (cd "$G" && git init -q)
+printf '{"name":"x"}\n' > "$G/package.json"; printf 'check:\n\ttrue\n' > "$G/Makefile"
+printf 'on: push\njobs: {}\n' > "$G/.github/workflows/ci.yml"
+OUT="$(bash "$S/guards-check.sh" "$G")"
+printf '%s' "$OUT" | grep -q '^ok       all        make check' && printf '%s' "$OUT" | grep -q '^MISSING  js         ESLint' \
+  && printf '%s' "$OUT" | grep -q '^MISSING  actions    zizmor' && ok "guards-check: detects stacks and missing guards" || ko "guards-check detect" "$OUT"
+bash "$S/guards-check.sh" "$G" --strict >/dev/null; [ $? = 1 ] && ok "guards-check --strict fails on gaps" || ko "guards-check strict"
+printf 'export default [];\n' > "$G/eslint.config.mjs"
+printf 'steps: [actionlint, "pipx run zizmor", gitleaks, codeql, "npm audit"]\n' > "$G/.github/workflows/lint.yml"
+printf 'module.exports={};\n' > "$G/.dependency-cruiser.cjs"
+bash "$S/guards-check.sh" "$G" --strict >"$T/gc.out"; [ $? = 0 ] && grep -q '^0 missing' "$T/gc.out" && ok "guards-check: complete repo passes --strict" || ko "guards-check complete" "$(cat "$T/gc.out")"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

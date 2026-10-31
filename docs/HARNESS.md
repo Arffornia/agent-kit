@@ -232,6 +232,12 @@ setting."
 Rows move right over time. When the harness audit sees the same review finding twice, it opens
 a PR that adds the sensor and an eval case.
 
+## Deterministic guards
+Tools before review: static and dynamic analysis per stack (types, lint, architecture rules,
+security patterns, secrets, workflow and shell linters, mutation where cheap) run in
+`make check` and CI. The matrix, the gap list and `guards-check.sh` are in
+[GUARDS.md](GUARDS.md).
+
 ## The sandbox, in plain language
 
 `sandbox.enabled: true` in `templates/.claude/settings.json` means: **every shell command Claude

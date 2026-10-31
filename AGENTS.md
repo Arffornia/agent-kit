@@ -32,6 +32,10 @@ jq . plugins/arffornia/hooks/hooks.json templates/.claude/settings.json >/dev/nu
 ```
 
 ## Rules
+- **Repo names** follow the org convention: `Arffornia_<Name>` for Arffornia projects
+  (`Arffornia_Website`, `Arffornia_Assets`, `Arffornia_Playtest`), `Nexus_<Name>` for the shared
+  libraries. Existing other names (`docs`, `agent-kit`, `ops`, `.github`, `keycloak-theme-arffornia`,
+  `minecraft-oauth`) stay as they are; never rename a repo. Brian creates repos; propose the name.
 - English. Conventional Commits (`feat(hooks): …`, `fix(templates): …`), one concern per PR,
   never merge: the maintainer merges. Commit trailers and PR footer as in the session standards.
 - Read the current Claude Code docs before changing a hook, setting or plugin file

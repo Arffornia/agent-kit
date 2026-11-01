@@ -21,5 +21,12 @@ paths:
   namespaces, a default-deny `NetworkPolicy` with explicit allows.
 - **Production apps** never run with debug on (`APP_DEBUG=false`, `LOG_LEVEL` info or warn).
 - Alerts and ServiceMonitors reference labels that exist; check with the rendered output.
+- **Vault secrets, policies and roles are always managed through Terraform (`infra/terraform`),
+  never by hand**: no `vault kv put`, `vault policy write` or `vault write auth/...`. Change
+  `secrets_variables.tfvars`, `policies/*.hcl` or `roles.tf` and let the owner run
+  `terraform apply`; a hand-made change drifts from the state and is reverted by the next apply.
 - Terraform: `terraform fmt` and `terraform validate`; never read or print `*.tfvars` or state.
+- Terraform `plan`/`apply` run on the owner's machine (the state backend, Garage S3, holds every
+  secret in clear and its credentials never reach agents or CI): write what to run in the PR or a
+  local-session prompt.
 - Agents never need cluster-admin or `kubectl exec`: changes go through a PR, results through CI.

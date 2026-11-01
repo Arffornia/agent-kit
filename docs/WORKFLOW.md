@@ -30,6 +30,15 @@ Rules:
   explicitly or what is clear-cut; the rest is "needs decision".
 - **Reports are high level**: done, problems, axes taken, what needs Brian. Evidence stays in
   the PR. Every link is a full URL with a one-line summary.
+- **Owner actions always come with a copy-prompt.** Anything only Brian can do (a secret to add,
+  an app to install, a step marked "Done" / "Let agents…") ships a `localPrompt` on its review
+  stack card or chantier page (review-stack 1.2+), so the "Copy prompt for Claude Code" button
+  hands his local Claude Code the exact steps and he never retypes instructions. Steps are
+  concrete commands, safe by default (diff or plan before applying, no force-push, no
+  `-auto-approve`, no secret on the command line) and follow the option he picked. For
+  Arffornia, set `language: "French"` and do Vault changes only through Terraform
+  (`terraform/` in https://github.com/TheGostsniperfr/infra). In a chat report, the same: an
+  owner step is a ready-to-paste prompt, not a description.
 - **Free only**: no paid service; free tiers, open source, self-hosted. A domain name is fine.
 - **No hard WIP cap**: Brian reviews in evening and weekend batches; the stack shows a soft
   review load. Proposals never expire; dormant ones resurface in the weekly brief.

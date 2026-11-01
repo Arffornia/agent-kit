@@ -58,7 +58,8 @@ jq . plugins/arffornia/hooks/hooks.json templates/.claude/settings.json >/dev/nu
   `/arffornia:harness-feedback` (search first, then append or open, with a patch).
 - **Reporting**: every PR, issue, commit or page you mention to a human is a full clickable URL
   with a one-line summary, grouped by what the human should do. Never "I opened the PR" without
-  the link.
+  the link. Owner actions always come with a copy-prompt (a `localPrompt` on the review stack
+  card, or a ready-to-paste prompt in the report): see `docs/WORKFLOW.md`.
 
 ## Gotchas
 - Plugin hook `timeout`s do not raise the SessionEnd budget (1.5 s): `handoff.sh` must stay fast.

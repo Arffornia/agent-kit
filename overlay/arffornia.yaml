@@ -8,7 +8,7 @@ base:
   ref: main
 skills:
   - name: review-stack
-    version: ^1.1
+    version: ^1.2
     patches:
       - append_section:
           heading: Rules
@@ -17,6 +17,9 @@ skills:
             - Arffornia: chantier issues live in Arffornia/docs (form chantier.yml); mirror the verdict
               as the label `chantier: approved` or `chantier: changes`. The orchestrator merges with
               "Create a merge commit", never squash.
+            - Arffornia: owner actions always come with a copy-prompt. Every `localPrompt` sets
+              `language: "French"`, and any Vault step goes through Terraform (`terraform/` in
+              TheGostsniperfr/infra, plan shown to Brian before apply), never `vault kv put` by hand.
   - name: handoff
     version: ^1.0
     patches:

@@ -18,6 +18,14 @@ Rules:
 - **Merge authority.** Agents merge only PRs listed in an approved chantier, in its order, via
   the merge plan (it refuses without the approval label). `gh pr merge` by hand stays blocked
   by the guard.
+- **Lockfile-only security bumps** are the one exception (Brian, 2026-11-01). An agent may
+  merge one without a card when all of these hold:
+  - the PR fixes a published security advisory;
+  - it changes only lockfiles (`package-lock.json`, `composer.lock`, `gradle.lockfile`, ...);
+  - every CI check on the head commit is green.
+
+  It merges with a merge commit, pinned to the head SHA. List it in the next weekly brief.
+  A bump that also touches a manifest, code or config still needs a card.
 - **Specs before code** for new chantiers. Implement directly only what Brian asked for
   explicitly or what is clear-cut; the rest is "needs decision".
 - **Reports are high level**: done, problems, axes taken, what needs Brian. Evidence stays in
